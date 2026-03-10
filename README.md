@@ -13,6 +13,7 @@
 | [tracker_add_task](#tracker_add_task) | `/tracker_add_task` | Создать задачу в Яндекс Трекере | tracker MCP |
 | [column-auto-width](#column-auto-width) | — | Авто-ширина колонок Google Sheets | gdrive MCP, Playwright |
 | [convert-to-table](#convert-to-table) | — | Конвертировать диапазон в таблицу Google Sheets | gdrive MCP, Playwright |
+| [github-setup](#github-setup) | `/github-setup` | Настройка SSH для GitHub, создание приватного/публичного репо, подключение папки | — |
 
 ---
 
@@ -200,6 +201,31 @@ cp -r /tmp/insapp-skills/skills/report-mfo ~/.claude/skills/
 **Требования:** Playwright MCP (`claude plugins add playwright`)
 
 📄 [SKILL.md](skills/convert-to-table/SKILL.md)
+
+---
+
+### github-setup
+
+**Команда:** `/github-setup`
+
+Полная настройка GitHub через SSH: генерация ключа, подключение к GitHub, создание репозитория (приватного или публичного), привязка существующей локальной папки.
+
+**Что делает:**
+1. Проверяет/создаёт SSH ключ ed25519
+2. Добавляет GitHub в known_hosts и проверяет соединение
+3. Настраивает имя и почту для коммитов
+4. Создаёт репозиторий через GitHub API (без gh CLI — используется токен)
+5. Подключает существующую папку проекта к репозиторию (или клонирует если папки нет)
+6. Первый коммит и push
+
+**Важные особенности:**
+- Использует GitHub API (`curl`) вместо `gh` CLI — gh требует scope `read:org`, что вызывает ошибку
+- При подключении существующей папки использует `git init` + `git remote add`, а НЕ `git clone`
+- Превентивно добавляет GitHub в `known_hosts` через `ssh-keyscan`
+
+**Требования:** нет (только bash + git + ssh)
+
+📄 [SKILL.md](skills/github-setup/SKILL.md)
 
 ---
 
