@@ -6,6 +6,7 @@
 
 | Скилл | Команда | Описание | Требования |
 |-------|---------|----------|------------|
+| [gitlab_dev_report](#gitlab_dev_report) | `/gitlab_dev_report` | Отчёт продуктивности команды: коммиты, строки кода, MR, acceptance rate | gitlab MCP |
 | [report-mfo](#report-mfo) | `/report-mfo` | МФО-отчёт по партнёру за период | insapp-db MCP |
 | [meet](#meet) | `/meet` | Создать встречу в Телемост + Google Календарь | gdrive MCP, telemost MCP |
 | [tracker_report_active](#tracker_report_active) | `/tracker_report_active` | Отчёт по сотруднику из Яндекс Трекера: задачи + часы | tracker MCP |
@@ -43,6 +44,68 @@ cp -r /tmp/insapp-skills/skills/report-mfo ~/.claude/skills/
 ---
 
 ## Описание скиллов
+
+### gitlab_dev_report
+
+**Команда:** `/gitlab_dev_report [project] [период]`
+
+Собирает отчёт по продуктивности команды разработки за период: коммиты, строки кода, MR статистика, acceptance rate, среднее время до merge. Опционально — оценка сложности задач из трекера и экспорт в Google Sheets.
+
+**Примеры:**
+```
+/gitlab_dev_report
+/gitlab_dev_report insapp 2 недели
+/gitlab_dev_report backend-api март 2026
+```
+
+**Что делает:**
+1. Находит проект по названию или ID (если не указан — показывает доступные проекты)
+2. Забирает все коммиты и MR за период (с пагинацией)
+3. Группирует по разработчикам, объединяет алиасы (`Alex` + `Alex Svistunov` → один человек)
+4. Считает метрики: коммиты, +/- строк, строк/день (нетто), MR создано/merged/closed, acceptance rate, avg merge time
+5. Опционально подтягивает задачи из трекера и оценивает сложность (⭐–⭐⭐⭐⭐⭐)
+6. Выводит отчёт в терминале — и предлагает создать Google Sheet (3 листа: сводная, детали, задачи)
+
+**Пример вывода:**
+```
+## 📊 GitLab Dev Report — insapp
+Период: 24 фев — 10 мар 2026
+
+### 👨‍💻 Dmitriy Listopad (@Listopad)
+
+Коммиты: 44  |  +21 914 / -794 строк  |  ~1 509 строк/день
+
+Merge Requests:
+- Создано: 17  |  Смержено: 15  |  Отклонено: 1
+- Acceptance rate: 94%
+- Среднее время до merge: 22 ч
+
+Фичи:
+- reliability-fix → merged  ⭐⭐⭐⭐⭐ CRITICAL
+- payment-patch-v2 → merged  ⭐⭐
+```
+
+**Требования:**
+- `gitlab` MCP — любой `@zereight/mcp-gitlab` или совместимый (read_api + read_repository токен)
+- `gdrive` MCP — опционально, для экспорта в Google Sheets
+- `tracker` MCP — опционально, для оценки сложности задач
+
+**Настройка gitlab MCP:**
+```json
+"gitlab": {
+  "type": "stdio",
+  "command": "npx",
+  "args": ["-y", "@zereight/mcp-gitlab"],
+  "env": {
+    "GITLAB_PERSONAL_ACCESS_TOKEN": "ВАШ_ТОКЕН",
+    "GITLAB_API_URL": "https://YOUR_GITLAB_HOST/api/v4"
+  }
+}
+```
+
+📄 [SKILL.md](skills/gitlab_dev_report/SKILL.md)
+
+---
 
 ### report-mfo
 
