@@ -10,7 +10,7 @@ description: Use when user invokes /report-mfo or asks to create an MFO partner 
 Creates an МФО partner report for a given partner and date period.
 
 **Output:**
-- Always: formatted table printed directly in the terminal (works without Google MCP)
+- Always: formatted table printed in the terminal (works without Google MCP)
 - If Google Drive MCP available: also creates a Google Sheet from the template
 
 **Invocation:** `/report-mfo [партнёр] [период]`
@@ -94,6 +94,7 @@ ORDER BY Day
 ```
 
 ### 5. Query issuances + MFO names + incoming commission
+
 First check FinOffers schema if needed: `mcp__insapp-db__schema` on table `FinOffers`.
 
 ```sql
@@ -117,7 +118,9 @@ GROUP BY CAST(a.Created AS DATE), fo_org.Name
 ORDER BY Day
 ```
 
-### 6. Ask about commission split
+**Commission fallback:** if FinOffers join fails, use `Applications.IncomingComissionAmount`.
+
+### 6. Ask about commission split (if new partner)
 If not already known for this partner, ask:
 > "Какой % от входящего КВ получает партнёр? (например: партнёр 80%, Insapp 20%)"
 
@@ -131,7 +134,7 @@ Calculate per row:
 - I = E / B (or 0 if B=0)
 - J = E / D (or 0 if D=0)
 
-Calculate ИТОГО row: SUM for B,C,D,E,F,G; recalculate H,I,J from totals.
+Calculate ИТОГО row: SUM for B–G; recalculate H, I, J from totals.
 
 ### 8. Print terminal table (ALWAYS)
 
@@ -140,16 +143,14 @@ Format as markdown table and output to the chat:
 ```
 ## Отчёт: [Партнёр] | [Период]
 
-| Дата       | Переходов | МФО           | Выдачи | Вход. КВ  | Исх. КВ   | Доход     |  CR   |   EPC   |  EPL  |
-|------------|-----------|---------------|--------|-----------|-----------|-----------|-------|---------|-------|
-| 06.03.2026 |       997 | OneClickMoney |      3 | 27 000 ₽  | 21 600 ₽  |  5 400 ₽  | 0,30% | 27,08 ₽ | 9 000 ₽|
-| ...        |           |               |        |           |           |           |       |         |       |
-| **ИТОГО**  |      4985 | —             |     15 | 135 000 ₽ | 108 000 ₽ | 27 000 ₽  | 0,30% | 27,08 ₽ | 9 000 ₽|
+| Дата       | Переходов | МФО           | Выдачи | Вход. КВ  | Исх. КВ   | Доход    |   CR  |  EPC   |   EPL   |
+|------------|-----------|---------------|--------|-----------|-----------|----------|-------|--------|---------|
+| 06.03.2026 |       229 | OneClickMoney |      1 |  9 000 ₽  |  7 200 ₽  | 1 800 ₽  | 0.44% |  39 ₽  | 9 000 ₽ |
+| 07.03.2026 |       169 | OneClickMoney |      2 | 18 000 ₽  | 14 400 ₽  | 3 600 ₽  | 1.18% | 107 ₽  | 9 000 ₽ |
+| **ИТОГО**  |       398 | —             |      3 | 27 000 ₽  | 21 600 ₽  | 5 400 ₽  | 0.75% |  68 ₽  | 9 000 ₽ |
 ```
 
-Format numbers: amounts → `#,##0 ₽`, CR → `0.00%`, EPC/EPL → `#,##0.00 ₽`.
-
-### 9. Create Google Sheet (if gdrive MCP available)
+### 9. Create Google Sheet (only if gdrive MCP available)
 
 **9a. Copy template**
 ```
@@ -157,6 +158,7 @@ mcp__gdrive__drive_copy_file:
   fileId: 1M0EImzWTNc916nhGs3ygBjYgB63Da055UMZl77QKkA8
   name: "Insapp | [Партнёр] отчёт — [Период]"
 ```
+Note the new spreadsheet ID from the response.
 
 **9b. Clear old data**
 ```
@@ -164,9 +166,10 @@ mcp__gdrive__gsheets_clear_data: Итого!A2:J20
 ```
 
 **9c. Fill data rows via batch update**
+
 Use `gsheets_batch_update` with `valueInputOption: USER_ENTERED`.
 
-For each data row (starting row 2):
+For each data row (starting at row 2):
 - A: `DD.MM.YYYY`
 - B–E: numeric values
 - F: `=E{row}*{partner_pct}` e.g. `=E2*0,8`
@@ -175,21 +178,35 @@ For each data row (starting row 2):
 - I: `=ЕСЛИОШИБКА(E{row}/B{row};0)`
 - J: `=ЕСЛИОШИБКА(E{row}/D{row};0)`
 
-ИТОГО row:
+ИТОГО row (at row = N_days + 2):
 - A: `ИТОГО`
-- B: `=SUM(B2:B{last})` ... G similarly
-- H–J: same ЕСЛИОШИБКА formulas over итого row
+- B–G: `=SUM(B2:B{last_data_row})` etc.
+- H–J: same ЕСЛИОШИБКА formulas using ИТОГО row number
 
-**Russian locale rules:** decimal separator `,`, function args `;`
+**Russian locale:** decimal `,` not `.` → `=E2*0,8`; function args `;` not `,` → `=ЕСЛИОШИБКА(D2/B2;0)`
 
-**9d. Format column A width (Playwright)**
-Use fixed 100px width for column A (dates). See `column-auto-width` skill.
+**9d. Delete extra rows**
 
-**9e. Convert to table (Playwright)**
-Select `A1:J{итого_row}` → right-click at y=192 → "Преобразовать в таблицу".
+Template has 5 data rows (rows 2–6) + ИТОГО (row 7) = 7 rows. If period has fewer than 5 days, delete leftover empty rows after ИТОГО.
 
-**9f. Return link**
-`https://docs.google.com/spreadsheets/d/[NEW_ID]/edit`
+```
+N_days = number of days in period
+
+If N_days < 5:
+  mcp__gdrive__gsheets_delete_rows:
+    sheetId: [from gsheets_list_sheets]
+    startIndex: N_days + 2   ← 0-indexed row after ИТОГО
+    count: 5 - N_days
+```
+
+Example: 2-day period → ИТОГО at row 4 → `startIndex=4, count=3` → deletes rows 5, 6, 7
+
+**Do NOT use Playwright** — template copy preserves table format, column widths, and number formats.
+
+**9e. Return link**
+```
+https://docs.google.com/spreadsheets/d/[NEW_ID]/edit
+```
 
 ---
 
@@ -197,7 +214,7 @@ Select `A1:J{итого_row}` → right-click at y=192 → "Преобразов
 
 - **Days with no issuances:** include row with visits/transitions, C=`—`, D/E=0
 - **Multiple MFOs per day:** comma-separate names in C, sum issuances in D
-- **Commission from DB:** sum IncomingCommission from FinOffers per day for column E
-- **ЛОКО split:** partner=80% (`F=E*0,8`), Insapp=20% (`G=E*0,2`)
-- **Always use MCP** for formula/data changes; Playwright only for table conversion and column resize
+- **ЛОКО split:** partner=80% (`=E*0,8`), Insapp=20% (`=E*0,2`)
+- **Template copy preserves everything** — table format, column widths, number formats carry over automatically; no Playwright needed
+- **Always use MCP** for data/formula changes; Playwright only if something truly cannot be done via MCP
 - **Template ID:** `1M0EImzWTNc916nhGs3ygBjYgB63Da055UMZl77QKkA8` — never modify, always copy

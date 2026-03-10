@@ -1,79 +1,131 @@
-# Insapp Partner Skills
+# Insapp Skills for Claude Code
 
-Скиллы для Claude Code, используемые аналитиками и менеджерами Insapp.
+Набор скиллов для [Claude Code](https://claude.ai/code) — автоматизируют рутинные задачи аналитики, отчётности и планирования встреч.
 
-## Доступные скиллы
+## Скиллы
 
-| Скилл | Команда | Описание |
-|-------|---------|----------|
-| report-mfo | `/report-mfo` | Отчёт по МФО-партнёру за период |
+| Скилл | Команда | Описание | Требования |
+|-------|---------|----------|------------|
+| [report-mfo](#report-mfo) | `/report-mfo` | МФО-отчёт по партнёру за период | insapp-db MCP |
+| [meet](#meet) | `/meet` | Создать встречу в Телемост + Google Календарь | gdrive MCP, telemost MCP |
+| [column-auto-width](#column-auto-width) | — | Авто-ширина колонок Google Sheets | gdrive MCP, Playwright |
+| [convert-to-table](#convert-to-table) | — | Конвертировать диапазон в таблицу Google Sheets | gdrive MCP, Playwright |
 
 ---
 
-## Установка скиллов
+## Установка
 
-### 1. Клонируй репозиторий (или только папку)
+### 1. Клонируй репозиторий
 
 ```bash
-git clone git@github.com:engwatch/B-project.git /tmp/insapp-skills
+git clone git@github.com:engwatch/insapp-skills.git /tmp/insapp-skills
 ```
 
-### 2. Скопируй скилл в директорию Claude Code
+### 2. Скопируй нужные скиллы
 
 ```bash
+# Все скиллы сразу
 mkdir -p ~/.claude/skills
-cp -r /tmp/insapp-skills/for-partners/skills/report-mfo ~/.claude/skills/
+cp -r /tmp/insapp-skills/skills/. ~/.claude/skills/
+
+# Или только конкретный
+cp -r /tmp/insapp-skills/skills/report-mfo ~/.claude/skills/
 ```
 
-### 3. Проверь установку
+### 3. Проверь
 
-Запусти Claude Code и введи `/report-mfo` — скилл должен появиться в автодополнении.
+Запусти Claude Code — скиллы появятся в автодополнении при вводе `/`.
 
 ---
 
-## Использование `/report-mfo`
+## Описание скиллов
 
-```
-/report-mfo "[партнёр]" "[период]"
-```
+### report-mfo
+
+**Команда:** `/report-mfo "[партнёр]" "[период]"`
+
+Создаёт отчёт по МФО-партнёру: визиты, переходы, выдачи, комиссии — по дням.
 
 **Примеры:**
 ```
 /report-mfo "ЛОКО-БАНК" "6–10 марта 2026"
 /report-mfo "Тинькофф" "март 2026"
-/report-mfo "МТС" "1–15 апреля 2026"
 ```
 
-**Что делает скилл:**
-1. Находит партнёра в базе данных Insapp
-2. Запрашивает статистику по дням: визиты, переходы в МФО, выдачи, комиссии
-3. Выводит таблицу прямо в терминале
-4. Если настроен Google Drive MCP — создаёт Google Sheet и возвращает ссылку
+**Что делает:**
+1. Находит партнёра в БД Insapp
+2. Запрашивает статистику по дням (визиты, переходы в МФО, выдачи, комиссии)
+3. Выводит таблицу в терминале (всегда, без Google MCP)
+4. Если настроен gdrive MCP — создаёт Google Sheet по шаблону
 
-**Вывод в терминале** работает всегда, без Google MCP:
-
+**Пример вывода в терминале:**
 ```
-## Отчёт: ЛОКО-БАНК | 6–10 марта 2026
+## Отчёт: ЛОКО-БАНК | 6–8 марта 2026
 
-| Дата       | Переходов | МФО           | Выдачи | Вход. КВ | Исх. КВ  | Доход    |   CR  |  EPC  |   EPL   |
-|------------|-----------|---------------|--------|----------|----------|----------|-------|-------|---------|
-| 06.03.2026 |       201 | OneClickMoney |      1 |  9 000 ₽ |  7 200 ₽ |  1 800 ₽ | 0.50% | 44.8₽ | 9 000 ₽ |
-| ...        |           |               |        |          |          |          |       |       |         |
-| ИТОГО      |       997 | —             |      3 | 27 000 ₽ | 21 600 ₽ |  5 400 ₽ | 0.30% | 27.1₽ | 9 000 ₽ |
+| Дата       | Переходов | МФО           | Выдачи | Вход. КВ | Исх. КВ  | Доход   |   CR  |  EPC  |   EPL   |
+|------------|-----------|---------------|--------|----------|----------|---------|-------|-------|---------|
+| 06.03.2026 |       229 | OneClickMoney |      1 |  9 000 ₽ |  7 200 ₽ | 1 800 ₽ | 0.44% |  39 ₽ | 9 000 ₽ |
+| 07.03.2026 |       169 | OneClickMoney |      2 | 18 000 ₽ | 14 400 ₽ | 3 600 ₽ | 1.18% | 107 ₽ | 9 000 ₽ |
+| ИТОГО      |       398 | —             |      3 | 27 000 ₽ | 21 600 ₽ | 5 400 ₽ | 0.75% |  68 ₽ | 9 000 ₽ |
 ```
+
+**Требования:** `insapp-db` MCP (обязательно), `gdrive` MCP (опционально для Google Sheets)
+
+📄 [SKILL.md](skills/report-mfo/SKILL.md)
 
 ---
 
-## Требования и настройка MCP
+### meet
 
-### Обязательно: insapp-db MCP
+**Команда:** `/meet` или фраза "создай встречу..."
 
-Все данные запрашиваются из базы данных Insapp через MCP-сервер.
+Создаёт встречу в Яндекс Телемост, находит участников по имени в таблице сотрудников, ставит событие в Google Календарь с приглашениями.
 
-**Получи API-ключ** у команды разработки Insapp (Telegram: @insapp_dev).
+**Примеры:**
+```
+Создай встречу на пятницу в 10:00, добавь Иванова и Петрову
+Встреча завтра в 15:30 с ivan@gmail.com
+```
 
-**Добавь в конфиг Claude Code** (`~/.claude.json` → раздел твоего проекта → `mcpServers`):
+**Требования:** `gdrive` MCP (Google Календарь + Таблицы), `telemost` MCP (Яндекс Телемост)
 
+📄 [SKILL.md](skills/meet/SKILL.md) · 📋 [Инструкция по установке](skills/meet/SETUP.md)
+
+---
+
+### column-auto-width
+
+Подгоняет ширину колонок Google Sheets под содержимое через Playwright.
+
+Используется другими скиллами автоматически. Можно вызвать вручную, сослав на этот скилл в запросе.
+
+**Особенности:**
+- Если колонка содержит длинный текст в одной ячейке — используй фиксированную ширину вместо авто-подбора
+- Canvas Google Sheets всегда начинается с `y=142`, заголовки колонок на `y≈152`
+
+**Требования:** Playwright MCP (`claude plugins add playwright`)
+
+📄 [SKILL.md](skills/column-auto-width/SKILL.md)
+
+---
+
+### convert-to-table
+
+Конвертирует диапазон Google Sheets в структурированную таблицу (фильтры, сортировка, чередование строк) через Playwright. MCP не умеет этого — только через браузерную автоматизацию.
+
+**Требования:** Playwright MCP (`claude plugins add playwright`)
+
+📄 [SKILL.md](skills/convert-to-table/SKILL.md)
+
+---
+
+## Настройка MCP
+
+### insapp-db — обязательно для report-mfo
+
+Получи API-ключ у команды разработки Insapp.
+
+Добавь в `~/.claude.json` → секция твоего проекта → `mcpServers`:
 ```json
 "insapp-db": {
   "type": "http",
@@ -84,69 +136,15 @@ cp -r /tmp/insapp-skills/for-partners/skills/report-mfo ~/.claude/skills/
 }
 ```
 
-**Или через CLI:**
-```bash
-claude mcp add insapp-db \
-  --transport http \
-  --url https://db-mcp.insapp.pro/mcp \
-  --header "x-api-key: ВАШ_API_КЛЮЧ"
-```
+### gdrive — для Google Sheets и Календаря
 
-Перезапусти Claude Code после добавления.
+Полная инструкция: [skills/meet/SETUP.md](skills/meet/SETUP.md) (Части 2 и 4).
 
----
-
-### Опционально: Google Drive MCP (для создания Google Sheets)
-
-Без этого MCP скилл работает в режиме «только терминал».
-С ним — дополнительно создаёт отформатированный Google Sheet.
-
-#### Шаг 1. Создай Google Cloud Project
-
-1. Открой [Google Cloud Console](https://console.cloud.google.com/)
-2. Нажми «Select a project» → «New Project»
-3. Дай название (например, `Claude MCP`) → «Create»
-
-#### Шаг 2. Включи нужные API
-
-В разделе **APIs & Services → Library** включи:
-- Google Drive API
-- Google Sheets API
-- Google Docs API (опционально)
-- Google Calendar API (опционально)
-
-#### Шаг 3. Создай OAuth 2.0 credentials
-
-1. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
-2. Application type: **Desktop app**
-3. Скачай JSON-файл с credentials
-4. Сохрани его в `~/.config/google-drive-mcp/gcp-oauth.keys.json`
-
-```bash
-mkdir -p ~/.config/google-drive-mcp
-mv ~/Downloads/client_secret_*.json ~/.config/google-drive-mcp/gcp-oauth.keys.json
-```
-
-#### Шаг 4. OAuth consent screen
-
-В разделе **APIs & Services → OAuth consent screen**:
-1. User Type: **Internal** (если аккаунт в Google Workspace) или External
-2. Заполни App name, email
-3. Добавь Scopes: `.../auth/drive`, `.../auth/spreadsheets`
-4. Если External — добавь свой email в Test users
-
-#### Шаг 5. Установи MCP-сервер
-
-```bash
-npx -y @alanse/mcp-server-google-workspace auth
-```
-
-Откроется браузер — авторизуйся под своим Google-аккаунтом.
-Токен сохранится автоматически.
-
-#### Шаг 6. Добавь в конфиг Claude Code
-
-В `~/.claude.json` (или через claude mcp add):
+Кратко:
+1. [Google Cloud Console](https://console.cloud.google.com) → создать проект → включить Drive, Sheets, Calendar API
+2. Credentials → OAuth client ID → Desktop app → скачать JSON
+3. Сохранить как `~/.config/google-drive-mcp/gcp-oauth.keys.json`
+4. Добавить в `~/.claude.json`:
 
 ```json
 "gdrive": {
@@ -161,33 +159,16 @@ npx -y @alanse/mcp-server-google-workspace auth
 }
 ```
 
-`CLIENT_ID` и `CLIENT_SECRET` берутся из скачанного JSON-файла.
+При первом запуске откроется браузер для авторизации Google.
 
-Перезапусти Claude Code. MCP появится в списке (`/mcp` команда).
+### telemost — для создания встреч
 
----
+Полная инструкция: [skills/meet/SETUP.md](skills/meet/SETUP.md) (Части 1, 3, 4).
 
-## Playwright MCP (опционально, для форматирования таблиц)
-
-Используется для конвертации диапазона в «умную таблицу» Google Sheets и подгонки ширины колонок.
+### Playwright — для форматирования таблиц
 
 ```bash
-# Устанавливается как плагин Claude Code
 claude plugins add playwright
-```
-
-Без Playwright скилл создаст таблицу без конвертации в Table-формат.
-
----
-
-## Структура репозитория
-
-```
-for-partners/
-├── README.md                  # Эта инструкция
-└── skills/
-    └── report-mfo/
-        └── SKILL.md           # Скилл для Claude Code
 ```
 
 ---
