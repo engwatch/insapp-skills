@@ -161,13 +161,18 @@ mcp__gdrive__drive_copy_file:
 Note the new spreadsheet ID from the response.
 
 **9b. Clear old data**
-```
-mcp__gdrive__gsheets_clear_data: Итого!A2:J20
+
+`ranges` must be an **array** (not a string):
+```json
+mcp__gdrive__gsheets_clear_data:
+  spreadsheetId: "[NEW_ID]"
+  ranges: ["Итого!A2:J20"]
 ```
 
 **9c. Fill data rows via batch update**
 
 Use `gsheets_batch_update` with `valueInputOption: USER_ENTERED`.
+`updates` must be a **native array**, not a JSON string — pass it as an object, never stringify.
 
 For each data row (starting at row 2):
 - A: `DD.MM.YYYY`
