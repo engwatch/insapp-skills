@@ -1,0 +1,203 @@
+---
+name: report-mfo
+description: Use when user invokes /report-mfo or asks to create an MFO partner report. Takes partner name and period, queries insapp-db, outputs terminal table and optionally creates Google Sheet.
+---
+
+# MFO Partner Report Generator
+
+## Overview
+
+Creates an МФО partner report for a given partner and date period.
+
+**Output:**
+- Always: formatted table printed directly in the terminal (works without Google MCP)
+- If Google Drive MCP available: also creates a Google Sheet from the template
+
+**Invocation:** `/report-mfo [партнёр] [период]`
+Examples:
+- `/report-mfo "ЛОКО-БАНК" "6–10 марта 2026"`
+- `/report-mfo "Тинькофф" "март 2026"`
+
+**Requirements:**
+- `insapp-db` MCP — required (all data queries)
+- `gdrive` MCP — optional (Google Sheets creation)
+
+---
+
+## Report Columns
+
+| Col | Name | Source |
+|-----|------|--------|
+| A | Дата | Each day in period |
+| B | Переходов в МФО | Applications reaching SentToFinOrgs+ status |
+| C | МФО (выдачи) | FinOrg names with CreditIssued |
+| D | Выдачи | Count of CreditIssued |
+| E | Входящее КВ | SUM(IncomingCommission from FinOffers) |
+| F | Исходящее КВ (партнёр) | E × партнёр% |
+| G | Доход Insapp | E × insapp% |
+| H | CR | D / B |
+| I | EPC | E / B |
+| J | EPL | E / D |
+
+---
+
+## Step-by-Step
+
+### 1. Parse arguments
+Extract: partner name (substring), start date, end date.
+
+### 2. Find partner in DB
+```sql
+-- InsappCoreProd
+SELECT p.PartnerId, p.Name, ak.ApiKeyId
+FROM Partners p
+JOIN PartnerApiKeys ak ON p.PartnerId = ak.PartnerId
+WHERE p.Name LIKE '%[партнёр]%' AND ak.IsActive = 1
+ORDER BY p.Created DESC
+```
+If multiple partners found — pick the one with MFO (ProductTypeId=5) activity or ask user.
+
+### 3. Query visits per day
+```sql
+-- InsappCoreProd
+SELECT CAST(a.Created AS DATE) as Day, COUNT(*) as Visits
+FROM Applications a
+JOIN PartnerApiKeys ak ON a.ApiKeyId = ak.ApiKeyId
+WHERE ak.PartnerId = '[PartnerId]'
+  AND a.ProductTypeId = 5
+  AND a.Created >= '[start_date]' AND a.Created < '[end_date+1]'
+GROUP BY CAST(a.Created AS DATE)
+ORDER BY Day
+```
+
+### 4. Query MFO transitions per day
+"Переходы в МФО" = applications that reached SentToFinOrgs or any later status.
+```sql
+-- InsappCoreProd
+SELECT CAST(a.Created AS DATE) as Day, COUNT(*) as Transitions
+FROM Applications a
+JOIN PartnerApiKeys ak ON a.ApiKeyId = ak.ApiKeyId
+WHERE ak.PartnerId = '[PartnerId]'
+  AND a.ProductTypeId = 5
+  AND a.ApplicationStatusTypeId IN (
+    '48b71dbc-a324-4035-9884-ec306bcd7b07', -- SentToFinOrgs
+    '688d34b5-93a4-43bf-9a5c-05fbbfca8056', -- RejectAllFinOrgs
+    '9770b0c2-a2e8-48e3-970b-f15413855e98', -- CreditInProcessing
+    'f1f81273-3b1c-4412-961f-5c3ae741a8fd', -- CreditProcessed
+    'f721fdc8-7175-4674-af8b-62ba4f42c247', -- CreditIssued
+    '93dc7794-5564-4a4e-8bae-d8c5eb2590ab', -- CreditRejected
+    'b7fec786-d840-4f31-a6bb-469a95a6016a'  -- OfferChosen
+  )
+  AND a.Created >= '[start_date]' AND a.Created < '[end_date+1]'
+GROUP BY CAST(a.Created AS DATE)
+ORDER BY Day
+```
+
+### 5. Query issuances + MFO names + incoming commission
+First check FinOffers schema if needed: `mcp__insapp-db__schema` on table `FinOffers`.
+
+```sql
+-- InsappCoreProd
+SELECT
+  CAST(a.Created AS DATE) as Day,
+  fo_org.Name as MFOName,
+  COUNT(*) as Issuances,
+  SUM(ISNULL(fo.IncomingCommission, 0)) as IncomingKV
+FROM Applications a
+JOIN PartnerApiKeys ak ON a.ApiKeyId = ak.ApiKeyId
+JOIN FinLoans fl ON a.FinLoanId = fl.FinLoanId
+JOIN FinOffers fo ON fl.FinLoanId = fo.FinLoanId
+JOIN FinProducts fp ON fo.FinProductId = fp.FinProductId
+JOIN FinOrgs fo_org ON fp.FinOrgId = fo_org.FinOrgId
+WHERE ak.PartnerId = '[PartnerId]'
+  AND a.ProductTypeId = 5
+  AND a.ApplicationStatusTypeId = 'f721fdc8-7175-4674-af8b-62ba4f42c247'
+  AND a.Created >= '[start_date]' AND a.Created < '[end_date+1]'
+GROUP BY CAST(a.Created AS DATE), fo_org.Name
+ORDER BY Day
+```
+
+### 6. Ask about commission split
+If not already known for this partner, ask:
+> "Какой % от входящего КВ получает партнёр? (например: партнёр 80%, Insapp 20%)"
+
+### 7. Build daily data
+For each day in the period, merge results from queries above. Days without data → fill zeros.
+
+Calculate per row:
+- F = E × партнёр%
+- G = E × insapp%
+- H = D / B (or 0 if B=0)
+- I = E / B (or 0 if B=0)
+- J = E / D (or 0 if D=0)
+
+Calculate ИТОГО row: SUM for B,C,D,E,F,G; recalculate H,I,J from totals.
+
+### 8. Print terminal table (ALWAYS)
+
+Format as markdown table and output to the chat:
+
+```
+## Отчёт: [Партнёр] | [Период]
+
+| Дата       | Переходов | МФО           | Выдачи | Вход. КВ  | Исх. КВ   | Доход     |  CR   |   EPC   |  EPL  |
+|------------|-----------|---------------|--------|-----------|-----------|-----------|-------|---------|-------|
+| 06.03.2026 |       997 | OneClickMoney |      3 | 27 000 ₽  | 21 600 ₽  |  5 400 ₽  | 0,30% | 27,08 ₽ | 9 000 ₽|
+| ...        |           |               |        |           |           |           |       |         |       |
+| **ИТОГО**  |      4985 | —             |     15 | 135 000 ₽ | 108 000 ₽ | 27 000 ₽  | 0,30% | 27,08 ₽ | 9 000 ₽|
+```
+
+Format numbers: amounts → `#,##0 ₽`, CR → `0.00%`, EPC/EPL → `#,##0.00 ₽`.
+
+### 9. Create Google Sheet (if gdrive MCP available)
+
+**9a. Copy template**
+```
+mcp__gdrive__drive_copy_file:
+  fileId: 1M0EImzWTNc916nhGs3ygBjYgB63Da055UMZl77QKkA8
+  name: "Insapp | [Партнёр] отчёт — [Период]"
+```
+
+**9b. Clear old data**
+```
+mcp__gdrive__gsheets_clear_data: Итого!A2:J20
+```
+
+**9c. Fill data rows via batch update**
+Use `gsheets_batch_update` with `valueInputOption: USER_ENTERED`.
+
+For each data row (starting row 2):
+- A: `DD.MM.YYYY`
+- B–E: numeric values
+- F: `=E{row}*{partner_pct}` e.g. `=E2*0,8`
+- G: `=E{row}*{insapp_pct}` e.g. `=E2*0,2`
+- H: `=ЕСЛИОШИБКА(D{row}/B{row};0)`
+- I: `=ЕСЛИОШИБКА(E{row}/B{row};0)`
+- J: `=ЕСЛИОШИБКА(E{row}/D{row};0)`
+
+ИТОГО row:
+- A: `ИТОГО`
+- B: `=SUM(B2:B{last})` ... G similarly
+- H–J: same ЕСЛИОШИБКА formulas over итого row
+
+**Russian locale rules:** decimal separator `,`, function args `;`
+
+**9d. Format column A width (Playwright)**
+Use fixed 100px width for column A (dates). See `column-auto-width` skill.
+
+**9e. Convert to table (Playwright)**
+Select `A1:J{итого_row}` → right-click at y=192 → "Преобразовать в таблицу".
+
+**9f. Return link**
+`https://docs.google.com/spreadsheets/d/[NEW_ID]/edit`
+
+---
+
+## Notes
+
+- **Days with no issuances:** include row with visits/transitions, C=`—`, D/E=0
+- **Multiple MFOs per day:** comma-separate names in C, sum issuances in D
+- **Commission from DB:** sum IncomingCommission from FinOffers per day for column E
+- **ЛОКО split:** partner=80% (`F=E*0,8`), Insapp=20% (`G=E*0,2`)
+- **Always use MCP** for formula/data changes; Playwright only for table conversion and column resize
+- **Template ID:** `1M0EImzWTNc916nhGs3ygBjYgB63Da055UMZl77QKkA8` — never modify, always copy
