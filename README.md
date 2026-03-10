@@ -8,6 +8,8 @@
 |-------|---------|----------|------------|
 | [report-mfo](#report-mfo) | `/report-mfo` | МФО-отчёт по партнёру за период | insapp-db MCP |
 | [meet](#meet) | `/meet` | Создать встречу в Телемост + Google Календарь | gdrive MCP, telemost MCP |
+| [tracker_report_active](#tracker_report_active) | `/tracker_report_active` | Отчёт по сотруднику из Яндекс Трекера: задачи + часы | tracker MCP |
+| [tracker_add_task](#tracker_add_task) | `/tracker_add_task` | Создать задачу в Яндекс Трекере | tracker MCP |
 | [column-auto-width](#column-auto-width) | — | Авто-ширина колонок Google Sheets | gdrive MCP, Playwright |
 | [convert-to-table](#convert-to-table) | — | Конвертировать диапазон в таблицу Google Sheets | gdrive MCP, Playwright |
 
@@ -93,6 +95,59 @@ cp -r /tmp/insapp-skills/skills/report-mfo ~/.claude/skills/
 
 ---
 
+### tracker_report_active
+
+**Команда:** `/tracker_report_active "[сотрудник]" "[период]"`
+
+Отчёт по активности сотрудника в Яндекс Трекере за период. Показывает задачи, сгруппированные по статусу, и залогированные часы (если есть).
+
+**Примеры:**
+```
+/tracker_report_active Котов
+/tracker_report_active Свистунов 2–10 марта
+/tracker_report_active Листопад март 2026
+```
+
+**Что делает:**
+1. Находит оба аккаунта сотрудника (старый + новый) в Трекере
+2. Ищет задачи по обоим аккаунтам параллельно
+3. Проверяет залогированные часы
+4. Выводит задачи по группам статусов + итоговую строку
+
+**Требования:** `tracker` MCP — Яндекс Трекер
+
+📄 [SKILL.md](skills/tracker_report_active/SKILL.md)
+
+---
+
+### tracker_add_task
+
+**Команда:** `/tracker_add_task`
+
+Создаёт задачу в Яндекс Трекере. Принимает параметры в свободной форме, резолвит исполнителя по имени, устанавливает дедлайн.
+
+**Примеры:**
+```
+/tracker_add_task
+/tracker_add_task Внедрить Claude Code → Гуркин, срок 11 марта, очередь INS
+```
+
+**Параметры:**
+- `summary` — название (обязательно, спросит если не указано)
+- `assignee` — исполнитель по имени или логину
+- `queue` — очередь (по умолчанию `INS`)
+- `deadline` — срок (понимает "11 марта", "2026-03-11")
+- `description` — описание задачи
+- `priority` — `critical`, `blocker`, `major`, `normal`, `minor`
+
+Возвращает ссылку на созданную задачу `https://tracker.yandex.ru/INS-XXXX`.
+
+**Требования:** `tracker` MCP — Яндекс Трекер
+
+📄 [SKILL.md](skills/tracker_add_task/SKILL.md)
+
+---
+
 ### column-auto-width
 
 Подгоняет ширину колонок Google Sheets под содержимое через Playwright.
@@ -164,6 +219,32 @@ cp -r /tmp/insapp-skills/skills/report-mfo ~/.claude/skills/
 ```
 
 При первом запуске Claude Code откроется браузер для авторизации Google — токен сохранится в `GWORKSPACE_CREDS_DIR` автоматически.
+
+### tracker — для работы с Яндекс Трекером
+
+Используется скиллами `tracker_report_active` и `tracker_add_task`. Требует OAuth-токен Яндекса и ID организации.
+
+1. Получи OAuth-токен: [oauth.yandex.ru](https://oauth.yandex.ru) (приложение с правами на Трекер)
+2. ID организации — в URL трекера: `https://tracker.yandex.ru/` → настройки организации
+3. Установи MCP-сервер:
+
+```bash
+git clone git@github.com:engwatch/insapp-skills.git /tmp/insapp-skills
+# Или возьми готовый из репозитория (если опубликован)
+```
+
+Добавь в `~/.claude.json` → секция твоего проекта → `mcpServers`:
+```json
+"tracker": {
+  "type": "stdio",
+  "command": "node",
+  "args": ["/путь/к/tracker-mcp/index.js"],
+  "env": {
+    "YANDEX_OAUTH_TOKEN": "ВАШ_ТОКЕН",
+    "YANDEX_ORG_ID": "ВАШ_ORG_ID"
+  }
+}
+```
 
 ### telemost — для создания встреч
 
