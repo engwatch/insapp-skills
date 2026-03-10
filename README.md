@@ -138,13 +138,17 @@ cp -r /tmp/insapp-skills/skills/report-mfo ~/.claude/skills/
 
 ### gdrive — для Google Sheets и Календаря
 
-Полная инструкция: [skills/meet/SETUP.md](skills/meet/SETUP.md) (Части 2 и 4).
+Используется пакет `@alanse/mcp-server-google-workspace`. Полная инструкция: [skills/meet/SETUP.md](skills/meet/SETUP.md) (Части 2 и 4).
 
 Кратко:
 1. [Google Cloud Console](https://console.cloud.google.com) → создать проект → включить Drive, Sheets, Calendar API
-2. Credentials → OAuth client ID → Desktop app → скачать JSON
-3. Сохранить как `~/.config/google-drive-mcp/gcp-oauth.keys.json`
-4. Добавить в `~/.claude.json`:
+2. **API и сервисы → Credentials → Create Credentials → OAuth client ID → Desktop app**
+3. Скопируй `Client ID` и `Client Secret` из созданного credential (скачивать JSON и сохранять файл не нужно)
+4. Создай папку для токена авторизации:
+   ```bash
+   mkdir -p ~/.config/google-drive-mcp
+   ```
+5. Добавь в `~/.claude.json`:
 
 ```json
 "gdrive": {
@@ -159,7 +163,7 @@ cp -r /tmp/insapp-skills/skills/report-mfo ~/.claude/skills/
 }
 ```
 
-При первом запуске откроется браузер для авторизации Google.
+При первом запуске Claude Code откроется браузер для авторизации Google — токен сохранится в `GWORKSPACE_CREDS_DIR` автоматически.
 
 ### telemost — для создания встреч
 
