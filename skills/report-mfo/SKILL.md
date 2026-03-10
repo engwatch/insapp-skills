@@ -160,21 +160,29 @@ mcp__gdrive__drive_copy_file:
 ```
 Note the new spreadsheet ID from the response.
 
-**9b. Clear old data**
+**9b. Insert rows into table (if N_days > 1)**
 
-`ranges` must be an **array** (not a string):
-```json
-mcp__gdrive__gsheets_clear_data:
-  spreadsheetId: "[NEW_ID]"
-  ranges: ["Итого!A2:J20"]
+Template has 1 header row + 1 empty data row (inside table) + ИТОГО at row 3.
+To add more rows while keeping table formatting, insert N_days-1 rows **inside** the table at index 1:
+
 ```
+If N_days > 1:
+  mcp__gdrive__gsheets_insert_rows:
+    spreadsheetId: [NEW_ID]
+    sheetId: [from gsheets_list_sheets]
+    startIndex: 1          ← inserts between header (row 1) and data row (row 2)
+    count: N_days - 1
+    inheritFromBefore: false
+```
+
+Result: rows 2..N_days+1 are table-formatted data rows, ИТОГО shifts to row N_days+2.
 
 **9c. Fill data rows via batch update**
 
 Use `gsheets_batch_update` with `valueInputOption: USER_ENTERED`.
 `updates` must be a **native array**, not a JSON string — pass it as an object, never stringify.
 
-For each data row (starting at row 2):
+Fill rows 2 through N_days+1. For each data row:
 - A: `DD.MM.YYYY`
 - B–E: numeric values
 - F: `=E{row}*{partner_pct}` e.g. `=E2*0,8`
@@ -183,28 +191,23 @@ For each data row (starting at row 2):
 - I: `=ЕСЛИОШИБКА(E{row}/B{row};0)`
 - J: `=ЕСЛИОШИБКА(E{row}/D{row};0)`
 
-ИТОГО row (at row = N_days + 2):
-- A: `ИТОГО`
-- B–G: `=SUM(B2:B{last_data_row})` etc.
-- H–J: same ЕСЛИОШИБКА formulas using ИТОГО row number
-
 **Russian locale:** decimal `,` not `.` → `=E2*0,8`; function args `;` not `,` → `=ЕСЛИОШИБКА(D2/B2;0)`
 
-**9d. Delete extra rows**
+**9d. Write ИТОГО row**
 
-Template has 5 data rows (rows 2–6) + ИТОГО (row 7) = 7 rows. If period has fewer than 5 days, delete leftover empty rows after ИТОГО.
+ИТОГО is at row N_days+2. Write it explicitly with correct range:
 
 ```
-N_days = number of days in period
-
-If N_days < 5:
-  mcp__gdrive__gsheets_delete_rows:
-    sheetId: [from gsheets_list_sheets]
-    startIndex: N_days + 2   ← 0-indexed row after ИТОГО
-    count: 5 - N_days
+range: "Итого!A{N+2}:J{N+2}"
+values: [["ИТОГО", "=СУММ(B2:B{N+1})", "—", "=СУММ(D2:D{N+1})",
+          "=СУММ(E2:E{N+1})", "=СУММ(F2:F{N+1})", "=СУММ(G2:G{N+1})",
+          "=ЕСЛИОШИБКА(D{N+2}/B{N+2};0)", "=ЕСЛИОШИБКА(E{N+2}/B{N+2};0)",
+          "=ЕСЛИОШИБКА(E{N+2}/D{N+2};0)"]]
 ```
 
-Example: 2-day period → ИТОГО at row 4 → `startIndex=4, count=3` → deletes rows 5, 6, 7
+Examples:
+- 2-day period → data rows 2–3, ИТОГО at row 4: `=СУММ(B2:B3)` etc.
+- 19-day period → data rows 2–20, ИТОГО at row 21: `=СУММ(B2:B20)` etc.
 
 **Do NOT use Playwright** — template copy preserves table format, column widths, and number formats.
 
@@ -221,5 +224,7 @@ https://docs.google.com/spreadsheets/d/[NEW_ID]/edit
 - **Multiple MFOs per day:** comma-separate names in C, sum issuances in D
 - **ЛОКО split:** partner=80% (`=E*0,8`), Insapp=20% (`=E*0,2`)
 - **Template copy preserves everything** — table format, column widths, number formats carry over automatically; no Playwright needed
+- **Template structure:** 1 header row + 1 empty data row (inside Table) + ИТОГО at row 3 — truly flexible, any number of days
+- **Rows are inserted, not deleted** — insert N-1 rows inside table at index 1, then write data + ИТОГО
 - **Always use MCP** for data/formula changes; Playwright only if something truly cannot be done via MCP
 - **Template ID:** `1M0EImzWTNc916nhGs3ygBjYgB63Da055UMZl77QKkA8` — never modify, always copy
