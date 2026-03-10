@@ -9,6 +9,7 @@
 | [report-mfo](#report-mfo) | `/report-mfo` | МФО-отчёт по партнёру за период | insapp-db MCP |
 | [meet](#meet) | `/meet` | Создать встречу в Телемост + Google Календарь | gdrive MCP, telemost MCP |
 | [tracker_report_active](#tracker_report_active) | `/tracker_report_active` | Отчёт по сотруднику из Яндекс Трекера: задачи + часы | tracker MCP |
+| [tracker](#tracker) | `/tracker` | Интерактивный помощник Яндекс Трекера: задачи, ворклоги, статистика | tracker MCP |
 | [tracker_add_task](#tracker_add_task) | `/tracker_add_task` | Создать задачу в Яндекс Трекере | tracker MCP |
 | [column-auto-width](#column-auto-width) | — | Авто-ширина колонок Google Sheets | gdrive MCP, Playwright |
 | [convert-to-table](#convert-to-table) | — | Конвертировать диапазон в таблицу Google Sheets | gdrive MCP, Playwright |
@@ -92,6 +93,34 @@ cp -r /tmp/insapp-skills/skills/report-mfo ~/.claude/skills/
 **Требования:** `gdrive` MCP (Google Календарь + Таблицы), `telemost` MCP (Яндекс Телемост)
 
 📄 [SKILL.md](skills/meet/SKILL.md) · 📋 [Инструкция по установке](skills/meet/SETUP.md)
+
+---
+
+### tracker
+
+**Команда:** `/tracker [запрос]`
+
+Интерактивный помощник для работы с Яндекс Трекером. Если запрос не указан — спрашивает что нужно сделать и предлагает меню действий.
+
+**Примеры:**
+```
+/tracker
+/tracker покажи мои задачи
+/tracker INS-123
+/tracker создай задачу
+/tracker залогируй 2 часа INS-456
+```
+
+**Что умеет:**
+- Просмотр задач (по ключу, мои задачи, поиск)
+- Создание задач с резолвом исполнителя по имени
+- Обновление задач: статус, поля, переходы
+- Логирование времени
+- Статистика по сотруднику / команде / очереди
+
+**Требования:** `tracker` MCP — Яндекс Трекер
+
+📄 [SKILL.md](skills/tracker/SKILL.md)
 
 ---
 
