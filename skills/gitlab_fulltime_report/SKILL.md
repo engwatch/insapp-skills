@@ -3,6 +3,26 @@ name: gitlab_fulltime_report
 description: Use when user invokes /gitlab_fulltime_report or asks for a full developer activity report covering their entire work history — all commits, MRs, monthly breakdown, tracker tasks with complexity scoring, quality analysis, and HTML report. Also handles team-wide quality reports when user asks for all developers.
 ---
 
+## Разрешение алиасов (КРИТИЧНО — делать в первую очередь)
+
+Один разработчик часто коммитит под несколькими именами. **Идентичность = email, не имя.**
+
+### Метод выявления алиасов
+
+1. Запроси коммиты по username (через MR `author_username`) — получи список SHA
+2. Для каждого SHA вызови `get_commit` → поле `author_email` и `author_name`
+3. Сгруппируй все уникальные `(email, name)` пары → все имена с одним email = один человек
+4. Проверь пограничные случаи: `author="Alex"` ловит «Alex», «Alex Petrov», «Alexander» за один запрос
+
+**Признаки алиасов:** имя является подстрокой другого («Alex» + «Alex Svistunov»), одинаковый email, схожие суммы строк.
+
+**После нахождения алиасов:** суммируй коммиты по ВСЕМ алиасам. Явно укажи в отчёте какие имена объединены.
+
+**Пример алиасов одного разработчика:**
+- `alice`: «Alice», «Alice Smith», «alice.smith@company.com» — три имени, один человек
+- `bob`: «Bob», «Robert Johnson» — `author="Bob"` поймёт оба варианта одним запросом
+- **Важно:** никогда не полагайся на имя — только на email как уникальный ключ
+
 # GitLab Full-Period Developer Report
 
 **Команда:** `/gitlab_fulltime_report [developer] [project]`
@@ -59,6 +79,8 @@ file:///Users/<username>/Downloads/team-quality-report-[YYYY-MM].html
      - Коммитов/день (синий, scale 0–3 = 0–100%)
    - Инсайт-блоки: green/blue/amber/purple/red с жирным началом
 3. **Сравнение** — таблица N×M метрик с подсветкой лидеров (`best`=зелёный, `warn`=красный) + competency-карточки + итоговые звёзды
+
+Каждая вкладка разработчика включает **блок «Задачи периода»** (см. раздел ниже).
 
 ### Цветовая схема инсайтов
 
@@ -337,6 +359,87 @@ mcp__tracker__get_issue(issueKey="INS-XXXX")
 file:///Users/<username>/Downloads/[username]-report-[YYYY-MM].html
 ```
 И сразу открой в браузере командой: `open ~/Downloads/[username]-report-[YYYY-MM].html`
+
+---
+
+## Блок «Задачи периода» (обязателен в HTML каждого разработчика)
+
+Располагается **первым блоком** на вкладке разработчика, до метрик.
+Даёт быстрый ответ: над чем работал, сколько усилий потратил.
+
+### Как собрать данные
+
+Из MR `source_branch` извлеки тикеты (INS-XXXX, BACK-XXXX и т.д.).
+Для каждого тикета: `mcp__tracker__get_issue(issueKey=...)` → `summary`, `description`, `status`.
+Для каждого MR с тикетом: вызови `get_commit_diff` или `get_commit` на его коммиты → суммируй `stats.additions + deletions`.
+
+### Группировка по фичам
+
+Сгруппируй тикеты по смыслу:
+- **Интеграции** (partner/mfo/widget)
+- **Авторизация / безопасность**
+- **Бизнес-логика** (расчёты, флоу заявок)
+- **Инфраструктура / конфиг**
+- **Баги / hotfix**
+
+### HTML-карточка задач (внутри вкладки)
+
+```html
+<div class="quality-card">
+  <div class="qc-title">🗂 Задачи периода</div>
+  <!-- Для каждой группы фич: -->
+  <div class="feature-group">
+    <div class="fg-header">
+      <span class="fg-icon">🔗</span>
+      <span class="fg-name">Интеграции с партнёрами</span>
+      <span class="fg-stats">3 задачи · +8 400 / -1 200 строк · ~2.8 мес.</span>
+    </div>
+    <!-- Для каждой задачи внутри группы: -->
+    <div class="task-row">
+      <span class="task-ticket">INS-123</span>
+      <span class="task-name">Интеграция с ОСАГО — новый виджет</span>
+      <span class="task-complexity">⭐⭐⭐⭐</span>
+      <span class="task-lines">+3 200 / -400 стр.</span>
+      <span class="task-badge merged">merged</span>
+    </div>
+    ...
+  </div>
+</div>
+```
+
+**CSS для блока задач:**
+```css
+.feature-group { margin-bottom: 16px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+.fg-header { background: #f8fafc; padding: 10px 16px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.fg-icon { font-size: 18px; }
+.fg-name { font-weight: 700; color: #1e293b; flex: 1; }
+.fg-stats { color: #64748b; font-size: 12px; }
+.task-row { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-top: 1px solid #f1f5f9; font-size: 13px; }
+.task-ticket { font-weight: 700; color: #2563eb; min-width: 70px; font-size: 12px; }
+.task-name { flex: 1; color: #374151; }
+.task-complexity { min-width: 80px; }
+.task-lines { color: #64748b; font-size: 12px; min-width: 120px; text-align: right; }
+.task-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+.task-badge.merged { background: #d1fae5; color: #065f46; }
+.task-badge.closed { background: #fee2e2; color: #991b1b; }
+.task-badge.opened { background: #dbeafe; color: #1d4ed8; }
+```
+
+### Инсайты под задачами (2–3 строки)
+
+После таблицы задач — краткий текстовый вывод:
+```html
+<div class="insights">
+  <div class="ins green">📦 <b>Основная нагрузка:</b> интеграции (~60% строк кода). Самая крупная задача — INS-123 (+3 200 стр.).</div>
+  <div class="ins blue">⭐ <b>Сложность:</b> 2 задачи ⭐⭐⭐⭐+ — архитектурный уровень. Баги — 3 шт., мелкие.</div>
+</div>
+```
+
+**Правила для инсайтов:**
+- Максимум 3 строки, каждая = одна мысль
+- Жирное начало — ключевое слово (Основная нагрузка, Сложность, Тренд)
+- Конкретные числа: не «много строк», а «+3 200 стр.»
+- Если задач нет в трекере — анализируй по названию веток (feature/fix/refactor)
 
 ---
 
