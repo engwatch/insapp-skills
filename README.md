@@ -9,6 +9,7 @@
 | [audio_script](#audio_script) | `/audio_script` | Расшифровка звонков через Whisper + готовый скрипт для AI колл-бота | Python, ffmpeg |
 | [gitlab_dev_report](#gitlab_dev_report) | `/gitlab_dev_report` | Отчёт продуктивности команды: коммиты, строки кода, MR, acceptance rate | gitlab MCP |
 | [gitlab_fulltime_report](#gitlab_fulltime_report) | `/gitlab_fulltime_report` | Полный отчёт по разработчику за всё время: коммиты, MR, помесячная разбивка, сложность задач, HTML | gitlab MCP, tracker MCP |
+| [gitlab_compar](#gitlab_compar) | `/gitlab_compar` | Командный сравнительный отчёт за период (по умолчанию неделя): что делал каждый разработчик, строки кода, фичи, сложность задач. HTML с вкладками | gitlab MCP, tracker MCP |
 | [report-mfo](#report-mfo) | `/report-mfo` | МФО-отчёт по партнёру за период | insapp-db MCP |
 | [meet](#meet) | `/meet` | Создать встречу в Телемост + Google Календарь | gdrive MCP, telemost MCP |
 | [tracker_report_active](#tracker_report_active) | `/tracker_report_active` | Отчёт по сотруднику из Яндекс Трекера: задачи + часы | tracker MCP |
@@ -206,6 +207,45 @@ MR создано: 28 | Смержено: 24 | Acceptance rate: 86%
 - `tracker` MCP — опционально, для оценки сложности задач
 
 📄 [SKILL.md](skills/gitlab_fulltime_report/SKILL.md)
+
+---
+
+### gitlab_compar
+
+**Команда:** `/gitlab_compar [period] [project_id]`
+
+Командный сравнительный отчёт за период. По умолчанию — последние 7 дней. Показывает что каждый разработчик делал: фичи, строки кода, MR, сложность задач. Сохраняет HTML-файл в `~/Downloads/`.
+
+**Примеры:**
+```
+/gitlab_compar                       — последняя неделя
+/gitlab_compar 2w                    — 2 недели
+/gitlab_compar 2026-03               — март 2026
+/gitlab_compar 2026-02-01:2026-02-28 — произвольный диапазон
+/gitlab_compar 1w 42                 — неделя, проект #42
+```
+
+**Что делает:**
+1. Вычисляет даты периода (Bash)
+2. Находит всех активных разработчиков за период
+3. Параллельно собирает по каждому: коммиты + строки кода + MR + тикеты из трекера
+4. Определяет алиасы (один человек — несколько git-имён) по email
+5. Группирует задачи по типу: интеграции / баги / бизнес-логика / инфраструктура
+6. Оценивает сложность каждой задачи (⭐–⭐⭐⭐⭐⭐)
+7. Создаёт HTML-отчёт `~/Downloads/team-compar-YYYY-MM-DD.html` с вкладками per-developer
+8. Открывает HTML в браузере
+
+**Формат вывода:**
+
+Терминал (сводная таблица) → HTML-файл (вкладки: Обзор / каждый разработчик / Сравнение).
+
+Главный блок каждой вкладки — «Задачи периода»: группированные по типу, с объёмом строк кода и сложностью. Инсайты — максимум 3 строки, читается за 5 секунд.
+
+**Требования:**
+- `gitlab` MCP — `@zereight/mcp-gitlab` или совместимый (read_api + read_repository)
+- `tracker` MCP — опционально, для оценки сложности задач по тикетам
+
+📄 [SKILL.md](skills/gitlab_compar/SKILL.md)
 
 ---
 
