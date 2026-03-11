@@ -8,6 +8,7 @@
 |-------|---------|----------|------------|
 | [audio_script](#audio_script) | `/audio_script` | Расшифровка звонков через Whisper + готовый скрипт для AI колл-бота | Python, ffmpeg |
 | [gitlab_dev_report](#gitlab_dev_report) | `/gitlab_dev_report` | Отчёт продуктивности команды: коммиты, строки кода, MR, acceptance rate | gitlab MCP |
+| [gitlab_fulltime_report](#gitlab_fulltime_report) | `/gitlab_fulltime_report` | Полный отчёт по разработчику за всё время: коммиты, MR, помесячная разбивка, сложность задач, HTML | gitlab MCP, tracker MCP |
 | [report-mfo](#report-mfo) | `/report-mfo` | МФО-отчёт по партнёру за период | insapp-db MCP |
 | [meet](#meet) | `/meet` | Создать встречу в Телемост + Google Календарь | gdrive MCP, telemost MCP |
 | [tracker_report_active](#tracker_report_active) | `/tracker_report_active` | Отчёт по сотруднику из Яндекс Трекера: задачи + часы | tracker MCP |
@@ -159,6 +160,52 @@ Merge Requests:
 ```
 
 📄 [SKILL.md](skills/gitlab_dev_report/SKILL.md)
+
+---
+
+### gitlab_fulltime_report
+
+**Команда:** `/gitlab_fulltime_report [developer] [project]`
+
+Полный отчёт по деятельности разработчика за всё время работы в проекте: коммиты, строки кода, MR статистика, помесячная разбивка, оценка сложности задач из трекера, качественный анализ. Опционально — HTML-отчёт в светлой теме.
+
+**Примеры:**
+```
+/gitlab_fulltime_report
+/gitlab_fulltime_report svistunov
+/gitlab_fulltime_report alex.petrov backend-api
+```
+
+**Что делает:**
+1. Определяет период активности разработчика (от первого коммита до сегодня)
+2. Забирает все коммиты с пагинацией, объединяет алиасы (разные git-имена одного человека)
+3. Собирает все MR за весь период
+4. Группирует по месяцам с флагами: 🔥 пиковый, ⭐ сложные задачи, 📦 много MR, 🔧 техдолг
+5. Подтягивает задачи из трекера (INS-XXXX, BACK-XXXX из branch names) и оценивает сложность (⭐–⭐⭐⭐⭐⭐)
+6. Выводит отчёт в терминале с итоговыми метриками и анализом качества
+7. Опционально генерирует HTML-файл (светлая тема, карточки, таблицы, quality bar)
+
+**Пример вывода:**
+```
+## 📊 Full-Period Dev Report — Alex Svistunov (@svistunov)
+Проект: backend-api
+Период: 2025-08-01 — 2026-03-11 (7 месяцев)
+
+### 📅 Хронология по месяцам
+**2025-08** 🔥⭐
+Коммитов: 12 | +1 840 / -430 строк | MR: 3 смержено
+Задачи: INS-123 (Интеграция — ⭐⭐⭐⭐), INS-145 (фикс — ⭐⭐)
+
+### 📊 Итоговые метрики
+Коммитов: 87 | Строк: +15 230 / -4 890 | Нетто: +10 340
+MR создано: 28 | Смержено: 24 | Acceptance rate: 86%
+```
+
+**Требования:**
+- `gitlab` MCP — `@zereight/mcp-gitlab` или совместимый (read_api + read_repository)
+- `tracker` MCP — опционально, для оценки сложности задач
+
+📄 [SKILL.md](skills/gitlab_fulltime_report/SKILL.md)
 
 ---
 
