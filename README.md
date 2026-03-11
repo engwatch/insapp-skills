@@ -13,6 +13,7 @@
 | [tracker_report_active](#tracker_report_active) | `/tracker_report_active` | Отчёт по сотруднику из Яндекс Трекера: задачи + часы | tracker MCP |
 | [tracker](#tracker) | `/tracker` | Интерактивный помощник Яндекс Трекера: задачи, ворклоги, статистика | tracker MCP |
 | [tracker_add_task](#tracker_add_task) | `/tracker_add_task` | Создать задачу в Яндекс Трекере | tracker MCP |
+| [telegram_daily](#telegram_daily) | `/telegram_daily` | Дайджест Telegram за 24ч: упоминания, прямые теги, сводка целевых групп | Telegram MCP (локальный) |
 | [column-auto-width](#column-auto-width) | — | Авто-ширина колонок Google Sheets | gdrive MCP, Playwright |
 | [convert-to-table](#convert-to-table) | — | Конвертировать диапазон в таблицу Google Sheets | gdrive MCP, Playwright |
 | [github-setup](#github-setup) | `/github-setup` | Настройка SSH для GitHub, создание приватного/публичного репо, подключение папки | — |
@@ -295,6 +296,49 @@ Merge Requests:
 
 ---
 
+### telegram_daily
+
+**Команда:** `/telegram_daily [keyword]`
+
+Дайджест Telegram за последние 24 часа: кто тебя тегал, что происходило в целевых группах, какие вопросы остались без ответа.
+
+**Примеры:**
+```
+/telegram_daily
+/telegram_daily Acme
+/telegram_daily MyCompany
+```
+
+**Что делает:**
+1. Вызывает `get_daily_summary` из Telegram MCP
+2. Извлекает прямые упоминания `@username` — сортирует по приоритету (внешние партнёры > коллеги)
+3. Собирает сводку по группам, содержащим ключевое слово (по умолчанию "Insapp")
+4. Выделяет сообщения с вопросами (`?`, "подскажи", "когда") — они требуют ответа
+5. Выводит форматированный дайджест с разделами: прямые обращения / сводка групп / требуют ответа
+
+**Пример вывода:**
+```
+## 📬 Прямые обращения к @username
+
+**1. [08:12] Финуслуги | Insapp | МФО — Nikaletta**
+"обещали по трафику вернуться с 27 февраля, пока трафика нет @username"
+→ требует ответа
+
+## 📊 Сводка групп [Insapp] — 12 групп, 89 сообщений
+
+**2030ai | Insapp (36 сообщений)**
+- [06:04] Geo M: Залил скилл с локальным Whisper...
+- [10:23] Глеб: ИИ плохо отрабатывает скиллы...
+```
+
+**Требования:** Telegram MCP (локальный Python-сервер, инструкция ниже)
+
+**Установка:** см. [telegram MCP setup](#telegram--для-дайджеста-telegram) или полный гайд в [SKILL.md](skills/telegram_daily/SKILL.md)
+
+📄 [SKILL.md](skills/telegram_daily/SKILL.md)
+
+---
+
 ### column-auto-width
 
 Подгоняет ширину колонок Google Sheets под содержимое через Playwright.
@@ -421,6 +465,89 @@ git clone git@github.com:engwatch/insapp-skills.git /tmp/insapp-skills
 ### telemost — для создания встреч
 
 Полная инструкция: [skills/meet/SETUP.md](skills/meet/SETUP.md) (Части 1, 3, 4).
+
+### telegram — для дайджеста Telegram
+
+Локальный Python MCP-сервер на базе [Telethon](https://github.com/LonamiWebs/Telethon). Читает твой Telegram через официальный User API — данные не покидают компьютер.
+
+**Шаг 1. Получи API-ключи**
+
+1. Открой [https://my.telegram.org](https://my.telegram.org) → войди под своим номером
+2. **API development tools** → создай новое приложение (название любое)
+3. Скопируй `App api_id` (число) и `App api_hash` (строка)
+
+**Шаг 2. Создай директорию и скачай файлы**
+
+```bash
+mkdir -p ~/.claude/mcp-servers/telegram/session
+
+curl -o ~/.claude/mcp-servers/telegram/server.py \
+  https://raw.githubusercontent.com/engwatch/insapp-skills/main/mcp-servers/telegram/server.py
+
+curl -o ~/.claude/mcp-servers/telegram/auth.py \
+  https://raw.githubusercontent.com/engwatch/insapp-skills/main/mcp-servers/telegram/auth.py
+
+curl -o ~/.claude/mcp-servers/telegram/requirements.txt \
+  https://raw.githubusercontent.com/engwatch/insapp-skills/main/mcp-servers/telegram/requirements.txt
+```
+
+**Шаг 3. Вставь свои ключи**
+
+Открой `~/.claude/mcp-servers/telegram/server.py` и `auth.py`, замени:
+```python
+API_ID = 0           # ← вставить число из my.telegram.org
+API_HASH = ""        # ← вставить строку из my.telegram.org
+```
+
+**Шаг 4. Установи зависимости**
+
+```bash
+cd ~/.claude/mcp-servers/telegram
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
+```
+
+**Шаг 5. Авторизуйся (один раз)**
+
+```bash
+./venv/bin/python3 auth.py
+```
+
+Скрипт спросит номер телефона, код из Telegram-приложения и пароль 2FA (если включён). После создаётся `session/user.session`.
+
+**Шаг 6. Добавь в конфиг Claude Desktop**
+
+`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
+
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "command": "/Users/YOUR_USERNAME/.claude/mcp-servers/telegram/venv/bin/python3",
+      "args": [
+        "/Users/YOUR_USERNAME/.claude/mcp-servers/telegram/server.py"
+      ]
+    }
+  }
+}
+```
+
+> Заменить `YOUR_USERNAME` на реальное имя пользователя (`echo $USER`).
+
+**Шаг 7. Добавь разрешения**
+
+В `~/.claude/settings.json` добавь в `permissions.allow`:
+```json
+"mcp__telegram__*"
+```
+
+**Шаг 8. Перезапусти Claude Code**
+
+Доступные инструменты:
+- `get_daily_summary` — полный дайджест за 24ч
+- `get_mentions(hours)` — только упоминания за N часов
+- `get_insapp_summary(hours)` — только группы с ключевым словом
+- `send_message(chat, text)` — отправить сообщение
 
 ### Playwright — для форматирования таблиц
 
