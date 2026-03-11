@@ -1,6 +1,6 @@
 ---
 name: gitlab_fulltime_report
-description: Use when user invokes /gitlab_fulltime_report or asks for a full developer activity report covering their entire work history — all commits, MRs, monthly breakdown, tracker tasks with complexity scoring, quality analysis, and HTML report.
+description: Use when user invokes /gitlab_fulltime_report or asks for a full developer activity report covering their entire work history — all commits, MRs, monthly breakdown, tracker tasks with complexity scoring, quality analysis, and HTML report. Also handles team-wide quality reports when user asks for all developers.
 ---
 
 # GitLab Full-Period Developer Report
@@ -8,11 +8,84 @@ description: Use when user invokes /gitlab_fulltime_report or asks for a full de
 **Команда:** `/gitlab_fulltime_report [developer] [project]`
 
 Примеры:
-- `/gitlab_fulltime_report`
-- `/gitlab_fulltime_report svistunov`
+- `/gitlab_fulltime_report` — покажи список разработчиков
+- `/gitlab_fulltime_report svistunov` — отчёт по одному
+- `/gitlab_fulltime_report team` — командный отчёт качества по всем разработчикам
 - `/gitlab_fulltime_report alex.petrov backend-api`
 
 ---
+
+## Режим: командный отчёт (`team`)
+
+Если аргумент `team` или пользователь просит отчёт по всей команде:
+
+### Шаг 1. Найди всех разработчиков
+
+```
+mcp__gitlab__list_merge_requests(project_id=<id>, state="all", per_page=100, page=1)
+```
+
+Повторяй с пагинацией. Собери уникальных авторов (`author.username` + `author.name`).
+
+### Шаг 2. Запусти параллельные агенты
+
+Для каждого разработчика запусти фоновый агент (`run_in_background=true`) со следующим заданием:
+
+> Собери данные о разработчике `username` из GitLab project_id=N. Получи все MR (пагинация), все коммиты (пагинация, author = display name или email), статистику строк по 20 коммитам. Вычисли: acceptance rate, avg merge days, commits/day, feature vs fix %, domain specialization. Верни JSON с полями: username, name, period_start, period_end, period_months, commits_total, commits_per_day, mr_total, mr_merged, mr_closed, mr_opened, acceptance_rate, avg_merge_days, lines_added, lines_deleted, lines_net, lines_estimated, feature_pct, fix_pct, other_pct, domain, peak_month, peak_month_commits, insights (массив {color, text}), top_competencies, red_flags.
+
+### Шаг 3. Собери результаты и создай HTML
+
+После завершения всех агентов создай HTML-файл по шаблону ниже.
+
+**Путь:** `~/Downloads/team-quality-report-[YYYY-MM].html`
+
+После создания файла выведи ссылку:
+```
+file:///Users/<username>/Downloads/team-quality-report-[YYYY-MM].html
+```
+И открой в браузере: `open ~/Downloads/team-quality-report-[YYYY-MM].html`
+
+### Структура командного HTML
+
+Страница с вкладками (JS-навигация):
+1. **Обзор** — сетка карточек всех разработчиков (acceptance rate, MR, commits, domain badge)
+2. **По каждому разработчику** — вкладка с:
+   - Заголовок (имя, домен-badge, период)
+   - Строка метрик (stat-cards)
+   - Барные диаграммы качества:
+     - Acceptance rate (зелёный, % напрямую)
+     - Скорость merge (синий, инвертировано: `(1 - min(days,5)/5)*100%`)
+     - Feature vs Fix (многосегментный: amber=fix, blue=feature, gray=other)
+     - Коммитов/день (синий, scale 0–3 = 0–100%)
+   - Инсайт-блоки: green/blue/amber/purple/red с жирным началом
+3. **Сравнение** — таблица N×M метрик с подсветкой лидеров (`best`=зелёный, `warn`=красный) + competency-карточки + итоговые звёзды
+
+### Цветовая схема инсайтов
+
+```css
+.ins.green  { background:#f0fdf4; color:#166534; border-left:4px solid #4ade80; }
+.ins.blue   { background:#eff6ff; color:#1e40af; border-left:4px solid #60a5fa; }
+.ins.amber  { background:#fffbeb; color:#92400e; border-left:4px solid #fbbf24; }
+.ins.purple { background:#faf5ff; color:#6b21a8; border-left:4px solid #a78bfa; }
+.ins.red    { background:#fff5f5; color:#991b1b; border-left:4px solid #fca5a5; }
+```
+
+### Метрики для сравнительной таблицы
+
+| Метрика | Лучший = |
+|---------|----------|
+| Период (мес.) | max |
+| Коммитов всего | max |
+| MR всего | max |
+| Acceptance rate | max (пометить * если < 20 MR) |
+| Ср. до merge (дн) | min |
+| Feature % | max |
+| Коммитов/день | max |
+| Reverts | 0 = лучший |
+
+---
+
+## Режим: одиночный отчёт
 
 ## Алгоритм
 
@@ -259,7 +332,11 @@ mcp__tracker__get_issue(issueKey="INS-XXXX")
 </html>
 ```
 
-Верни путь к файлу.
+Верни путь к файлу в виде кликабельной ссылки:
+```
+file:///Users/<username>/Downloads/[username]-report-[YYYY-MM].html
+```
+И сразу открой в браузере командой: `open ~/Downloads/[username]-report-[YYYY-MM].html`
 
 ---
 
