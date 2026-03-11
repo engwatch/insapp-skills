@@ -259,12 +259,6 @@ mcp__tracker__get_issue(issueKey="INS-XXXX")
 </html>
 ```
 
-Открой файл в браузере через Playwright для проверки:
-```
-mcp__plugin_playwright_playwright__browser_navigate(url="file:///[path]")
-mcp__plugin_playwright_playwright__browser_take_screenshot()
-```
-
 Верни путь к файлу.
 
 ---
