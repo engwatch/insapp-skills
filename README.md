@@ -6,6 +6,7 @@
 
 | Скилл | Команда | Описание | Требования |
 |-------|---------|----------|------------|
+| [audio_script](#audio_script) | `/audio_script` | Расшифровка звонков через Whisper + готовый скрипт для AI колл-бота | Python, ffmpeg |
 | [gitlab_dev_report](#gitlab_dev_report) | `/gitlab_dev_report` | Отчёт продуктивности команды: коммиты, строки кода, MR, acceptance rate | gitlab MCP |
 | [report-mfo](#report-mfo) | `/report-mfo` | МФО-отчёт по партнёру за период | insapp-db MCP |
 | [meet](#meet) | `/meet` | Создать встречу в Телемост + Google Календарь | gdrive MCP, telemost MCP |
@@ -44,6 +45,59 @@ cp -r /tmp/insapp-skills/skills/report-mfo ~/.claude/skills/
 ---
 
 ## Описание скиллов
+
+### audio_script
+
+**Команда:** `/audio_script [папка с записями]`
+
+Расшифровывает аудиозаписи звонков (MP3, M4A, WAV) через локальный Whisper и создаёт готовый скрипт для AI колл-бота с ветками возражений.
+
+**Примеры:**
+```
+/audio_script
+/audio_script ~/Downloads/calls
+/audio_script "Call centr"
+```
+
+**Что делает:**
+1. Находит все аудиофайлы в папке
+2. Устанавливает `openai-whisper` и `ffmpeg` если не установлены
+3. Расшифровывает каждый звонок (модель `small`, язык `ru`)
+4. Размечает реплики «Менеджер / Клиент» по контексту
+5. Создаёт `TRANSCRIPT_RAW.md` — все расшифровки с разметкой спикеров
+6. Анализирует паттерны: типовые возражения, успешные ответы, USP
+7. Создаёт `CALLBOT_SCRIPT.md` — готовый скрипт с системным промптом, ветками, стоп-фразами, JSON-конфигом
+
+**Пример вывода:**
+```
+call-folder/
+├── call_001.mp3
+├── call_002.mp3
+├── TRANSCRIPT_RAW.md      ← расшифровки с разметкой
+└── CALLBOT_SCRIPT.md      ← скрипт для AI колл-бота
+```
+
+**Структура CALLBOT_SCRIPT.md:**
+- Системный промпт с переменными `{CLIENT_NAME}`, `{PRODUCT_NAME}` и т.д.
+- Приветствие (дословно из записей)
+- Ветки возражений — по одной на каждый тип из реальных звонков
+- Завершение разговора
+- Таблица ключевых фактов (кэшбэки, USP, условия)
+- Стоп-фразы и реакция бота
+- JSON-конфиг (таймаут, перезвон, эскалация на оператора)
+
+**Требования:** Python 3, `openai-whisper` (`pip3 install openai-whisper`), `ffmpeg` (`brew install ffmpeg`)
+
+**Установка зависимостей (один раз):**
+```bash
+pip3 install openai-whisper --break-system-packages
+brew install ffmpeg   # macOS
+# sudo apt install ffmpeg  # Ubuntu/Debian
+```
+
+📄 [SKILL.md](skills/audio_script/SKILL.md)
+
+---
 
 ### gitlab_dev_report
 
