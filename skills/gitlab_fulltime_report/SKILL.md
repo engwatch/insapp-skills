@@ -1,6 +1,6 @@
 ---
 name: gitlab_fulltime_report
-description: Use when user invokes /gitlab_fulltime_report or asks for a full developer activity report covering their entire work history — all commits, MRs, monthly breakdown, tracker tasks with complexity scoring, quality analysis, and optional HTML report.
+description: Use when user invokes /gitlab_fulltime_report or asks for a full developer activity report covering their entire work history — all commits, MRs, monthly breakdown, tracker tasks with complexity scoring, quality analysis, and HTML report.
 ---
 
 # GitLab Full-Period Developer Report
@@ -166,15 +166,13 @@ mcp__tracker__get_issue(issueKey="INS-XXXX")
 ---
 ```
 
-После отчёта в терминале — **спроси пользователя:**
-
-> Создать HTML-отчёт?
+После отчёта в терминале — **сразу создай HTML-отчёт** (не спрашивая пользователя).
 
 ---
 
 ## HTML-отчёт
 
-Если пользователь ответил «да» / «создай» — сгенерируй HTML-файл.
+Создаётся автоматически после терминального отчёта.
 
 **Путь:** `~/Downloads/[username]-report-[YYYY-MM].html`
 
