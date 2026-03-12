@@ -19,6 +19,7 @@
 | [column-auto-width](#column-auto-width) | — | Авто-ширина колонок Google Sheets | gdrive MCP, Playwright |
 | [convert-to-table](#convert-to-table) | — | Конвертировать диапазон в таблицу Google Sheets | gdrive MCP, Playwright |
 | [github-setup](#github-setup) | `/github-setup` | Настройка SSH для GitHub, создание приватного/публичного репо, подключение папки | — |
+| [legal_new_mfo](#legal_new_mfo) | `/legal_new_mfo` | Генерация договоров лидогенерации МФО для партнёров + обновление реестра в Google Sheets | gdrive MCP |
 
 ---
 
@@ -474,6 +475,29 @@ MR создано: 28 | Смержено: 24 | Acceptance rate: 86%
 **Требования:** нет (только bash + git + ssh)
 
 📄 [SKILL.md](skills/github-setup/SKILL.md)
+
+---
+
+### legal_new_mfo
+
+**Команда:** `/legal_new_mfo [партнёр]`
+
+Генерирует договоры оказания услуг по привлечению пользователей (лидогенерация МФО) для новых партнёров и обновляет реестр договоров в Google Sheets.
+
+**Что делает:**
+1. Определяет следующий номер договора по реестру
+2. Добавляет реквизиты партнёра в скрипт генерации
+3. Запускает `make_all_contracts.py` — создаёт `.docx` договоры с приложениями (Реестр + Акт)
+4. Обновляет Google Sheets реестр через MCP (`gsheets_batch_update`): №, юрлицо, бренд, номер договора
+
+**Структура договора:**
+- 7 разделов (Предмет → Цена → Права и обязанности → Сроки → Ответственность → Прочие условия → Реквизиты)
+- Приложение 1: Реестр привлечённых клиентов
+- Приложение 2: Акт приёмки оказанных услуг
+
+**Требования:** `gdrive` MCP (для обновления Google Sheets), `python-docx` (`pip3 install python-docx`)
+
+📄 [SKILL.md](skills/legal_new_mfo/SKILL.md)
 
 ---
 
