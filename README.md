@@ -20,6 +20,7 @@
 | [convert-to-table](#convert-to-table) | — | Конвертировать диапазон в таблицу Google Sheets | gdrive MCP, Playwright |
 | [github-setup](#github-setup) | `/github-setup` | Настройка SSH для GitHub, создание приватного/публичного репо, подключение папки | — |
 | [legal_new_mfo](#legal_new_mfo) | `/legal_new_mfo` | Генерация договоров лидогенерации МФО для партнёров + обновление реестра в Google Sheets | gdrive MCP |
+| [html-push](#html-push) | `/html-push` | Деплой HTML-файла на GitHub Pages с публичной ссылкой | Playwright, SSH-ключ GitHub |
 
 ---
 
@@ -498,6 +499,28 @@ MR создано: 28 | Смержено: 24 | Acceptance rate: 86%
 **Требования:** `gdrive` MCP (для обновления Google Sheets), `python-docx` (`pip3 install python-docx`)
 
 📄 [SKILL.md](skills/legal_new_mfo/SKILL.md)
+
+### html-push
+
+**Команда:** `/html-push <path-to-html> [repo-name]`
+
+Деплоит любой HTML-файл на GitHub Pages и возвращает публичную ссылку. Один HTML = один репо. Идеально для отчётов, дашбордов и презентаций.
+
+**Что делает:**
+1. Создаёт публичный GitHub-репозиторий через Playwright
+2. Пушит HTML как `index.html` через SSH
+3. Включает GitHub Pages (main branch, root)
+4. Ждёт деплоя и возвращает публичную ссылку `https://<org>.github.io/<repo>/`
+
+**Пример:**
+```
+/html-push ~/reports/dashboard.html my-dashboard
+```
+Результат: `https://engwatch.github.io/my-dashboard/`
+
+**Требования:** Playwright MCP, SSH-ключ для GitHub (`ssh -T git@github.com` должен работать)
+
+📄 [SKILL.md](skills/html-push/SKILL.md)
 
 ---
 
