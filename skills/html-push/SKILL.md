@@ -15,11 +15,20 @@ description: Use when user invokes /html-push or asks to publish/deploy an HTML 
 ## Arguments
 
 ```
-/html-push <path-to-html> [repo-name]
+/html-push <path-to-html> [repo-name] [password:<пароль>]
 ```
 
 - `<path-to-html>` — путь к HTML-файлу (обязательный). Если не указан — спросить у пользователя.
 - `[repo-name]` — имя репозитория на GitHub (опционально). Если не указано — сгенерировать из имени файла (без расширения).
+- `[password:<пароль>]` — опционально. Если указан — HTML шифруется AES-256-GCM, страница показывает форму ввода пароля.
+
+**Примеры:**
+```
+/html-push ~/report.html
+/html-push ~/report.html my-report
+/html-push ~/report.html my-report password:secretpass
+/html-push ~/secret.html password:1234
+```
 
 ---
 
@@ -39,60 +48,83 @@ description: Use when user invokes /html-push or asks to publish/deploy an HTML 
 ### Step 1. Validate input
 
 1. Проверить что файл существует и это `.html`
-2. Определить `repo-name`: аргумент или `basename` файла без `.html`
+2. Определить `repo-name`: аргумент или `basename` файла без `.html` (транслитерировать кириллицу, оставить `[a-z0-9-]`)
 3. Определить GitHub org: из `git remote -v` текущего проекта (`origin`), извлечь org/user
-4. Финальный URL будет: `https://<org>.github.io/<repo-name>/`
+4. Определить есть ли пароль: искать аргумент `password:...` в команде
+5. Финальный URL: `https://<org>.github.io/<repo-name>/`
 
-### Step 2. Create GitHub repo via Playwright
+### Step 2. Prepare HTML
 
-GitHub API требует токен, а `gh auth` может быть не настроен. Используем Playwright:
-
-1. Открыть `https://github.com/new`
-2. Если не залогинен — GitHub покажет Dashboard (залогинен) или Login page
-3. Если залогинен:
-   - Заполнить Repository name = `repo-name`
-   - Owner — выбрать нужный org (если org отличается от текущего пользователя, кликнуть dropdown owner)
-   - Убедиться что **Public** выбран
-   - Нажать **Create repository**
-4. Если уже существует репозиторий — GitHub покажет ошибку. В этом случае:
-   - Просто использовать существующий: `git remote set-url origin ...` и force push
-
-### Step 3. Push HTML
+**Без пароля** — копировать файл как есть:
 
 ```bash
 TMPDIR=$(mktemp -d)
 cp <path-to-html> "$TMPDIR/index.html"
+```
+
+**С паролем** — зашифровать AES-256-GCM через Python-скрипт.
+
+Написать Python-скрипт который:
+1. Читает оригинальный HTML файл
+2. Генерирует случайный salt (16 байт) и iv (12 байт)
+3. Деривит ключ через PBKDF2-SHA256 (100000 итераций)
+4. Шифрует содержимое через AESGCM
+5. Генерирует HTML-обёртку с:
+   - Формой ввода пароля (input type=password + кнопка "Открыть")
+   - Зашифрованным контентом в base64 (в JS-переменных SALT, IV, CT)
+   - Web Crypto API: PBKDF2 → AES-GCM decrypt
+   - При успешной расшифровке: заменить всё содержимое страницы на расшифрованный HTML
+   - При ошибке: показать "Неверный пароль"
+6. Записывает результат в `$TMPDIR/index.html`
+
+Зависимость: `pip3 install cryptography --break-system-packages -q` (если не установлен).
+
+Стиль lock-screen: светлый фон, белая карточка по центру, иконка замка, поле пароля, кнопка.
+
+### Step 3. Create GitHub repo
+
+Получить токен из git credentials и создать через API:
+
+```bash
+# Получить токен
+TOKEN=$(echo -e "protocol=https\nhost=github.com" | git credential fill 2>/dev/null | grep password | cut -d= -f2)
+
+# Создать репо через API
+curl -s -X POST https://api.github.com/user/repos \
+  -H "Authorization: token $TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  -d '{"name":"<repo-name>","public":true}'
+```
+
+Если ответ содержит "already exists" — использовать существующий.
+
+### Step 4. Push HTML
+
+```bash
 cd "$TMPDIR"
-git init
-git checkout -b main
+git init && git checkout -b main
 git add index.html
 git commit -m "Deploy HTML page"
 git remote add origin git@github.com:<org>/<repo-name>.git
 git push -u origin main --force
 ```
 
-**Важно:** файл ВСЕГДА называется `index.html` в репо — GitHub Pages его обслуживает как корневую страницу.
+### Step 5. Enable GitHub Pages
 
-### Step 4. Enable GitHub Pages
+Через API:
 
-Через Playwright:
+```bash
+curl -s -X POST https://api.github.com/repos/<org>/<repo-name>/pages \
+  -H "Authorization: token $TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  -d '{"source":{"branch":"main","path":"/"}}'
+```
 
-1. Открыть `https://github.com/<org>/<repo-name>/settings/pages`
-2. В секции Branch: нажать кнопку "None" (dropdown)
-3. Выбрать "main"
-4. Folder оставить "/ (root)"
-5. Нажать "Save"
-6. Дождаться сообщения "GitHub Pages source saved"
+Если Pages уже настроен (409 Conflict) — пропустить.
 
-### Step 5. Wait for deploy
+### Step 6. Wait and return
 
-1. Открыть `https://github.com/<org>/<repo-name>/actions`
-2. Проверить что workflow `pages-build-deployment` запущен
-3. Подождать 30-60 секунд (деплой GitHub Pages)
-
-### Step 6. Return result
-
-Вернуть пользователю:
+Подождать 40 секунд, вернуть пользователю:
 
 ```
 Готово! HTML опубликован:
@@ -101,23 +133,28 @@ https://<org>.github.io/<repo-name>/
 Репозиторий: https://github.com/<org>/<repo-name>
 ```
 
+Если был пароль — добавить:
+```
+Страница защищена паролем. Контент зашифрован AES-256-GCM.
+```
+
 ---
 
 ## Edge Cases
 
 ### Репо уже существует
-Если при создании GitHub выдаёт ошибку "repository already exists":
-- Пушить с `--force` в существующий репо
-- Pages уже может быть настроен — проверить и пропустить Step 4 если уже active
+Пушить с `--force` в существующий. Pages уже может быть настроен — пропустить Step 5.
 
 ### Нет SSH-ключа
-Проверить `ssh -T git@github.com` перед Step 2. Если не работает — сообщить пользователю.
+Проверить `ssh -T git@github.com` перед Step 3. Если не работает — сообщить пользователю.
 
 ### Файл с русским именем
-При генерации repo-name из filename — транслитерировать или упростить: убрать кириллицу, спецсимволы, оставить `[a-z0-9-]`.
+При генерации repo-name — убрать кириллицу, спецсимволы, оставить `[a-z0-9-]`.
 
-### Несколько HTML файлов
-Если пользователь передал несколько файлов или директорию — скопировать все, но `index.html` должен быть один (main page). Остальные файлы доступны по прямым ссылкам.
+### Нет модуля cryptography (для password)
+```bash
+pip3 install cryptography --break-system-packages -q
+```
 
 ---
 
@@ -127,3 +164,4 @@ https://<org>.github.io/<repo-name>/
 - Deploy занимает ~30-60 секунд после настройки Pages
 - Для обновления: повторно запустить `/html-push` с тем же repo-name — сделает force push
 - HTTPS включается автоматически для `*.github.io` доменов
+- Шифрование: AES-256-GCM + PBKDF2 (100k итераций). Без пароля контент не читается даже из исходников страницы.
