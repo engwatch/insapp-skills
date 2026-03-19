@@ -25,6 +25,14 @@
 
 ---
 
+## Утилиты
+
+| Утилита | Описание | Установка |
+|---------|----------|-----------|
+| [cc](#cc--автоименование-сессий) | Обёртка для `claude` — автоматически генерирует короткое название сессии из промпта и показывает его во вкладке терминала | `curl -o ~/.local/bin/cc .../tools/cc/cc && chmod +x ~/.local/bin/cc` |
+
+---
+
 ## Установка
 
 ### 1. Клонируй репозиторий
@@ -555,6 +563,38 @@ MR создано: 28 | Смержено: 24 | Acceptance rate: 86%
 **Требования:** нет (работает с локальными файлами сессий Claude Code)
 
 📄 [SKILL.md](skills/report_claude_use/SKILL.md)
+
+---
+
+## cc — автоименование сессий
+
+Обёртка для `claude`, которая автоматически саммаризирует промпт через haiku (~3 сек) и запускает сессию с коротким названием.
+
+```bash
+# Вместо:
+claude
+# Набираешь:
+cc сделай обзор рынка МФО агрегаторов в России, кто имеет витрины, какой оборот
+```
+
+Вкладка терминала покажет `* Обзор рынка МФО` вместо `* Claude Code`.
+
+**Установка:**
+
+```bash
+# 1. Настройка Cursor/VS Code — добавь в settings.json:
+#    "terminal.integrated.tabs.title": "${sequence}"
+
+# 2. Скачай и установи
+curl -o ~/.local/bin/cc https://raw.githubusercontent.com/engwatch/insapp-skills/main/tools/cc/cc
+chmod +x ~/.local/bin/cc
+
+# 3. Убедись что ~/.local/bin в PATH
+echo $PATH | tr ':' '\n' | grep local/bin
+# Если нет: echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+```
+
+Подробнее: [tools/cc/README.md](tools/cc/README.md)
 
 ---
 

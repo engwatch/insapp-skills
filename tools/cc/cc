@@ -1,0 +1,34 @@
+#!/bin/bash
+# cc — обёртка для claude с автоматическим именованием сессии
+# AI-саммаризация названия через claude haiku (~3 сек, дёшево)
+#
+# Использование:
+#   cc                                — интерактивный режим
+#   cc сделай обзор рынка МФО...      — промпт аргументом
+#   cc --resume / cc -r / cc -c       — проброс в claude напрямую
+
+# Если переданы флаги — пробрасываем в claude как есть
+case "${1:-}" in
+  -r|--resume|-c|--continue|--name|-n|-p|--print|-h|--help|--debug|-d)
+    exec claude "$@"
+    ;;
+esac
+
+gen_name() {
+  local prompt="$1"
+  claude -p --model haiku "Придумай КОРОТКОЕ название сессии (2-4 слова) для этого запроса. Выведи ТОЛЬКО название, ничего больше. Запрос: $prompt" 2>/dev/null | head -1 | sed 's/^[\"'"'"']*//;s/[\"'"'"']*$//' | head -c 40
+}
+
+if [ $# -gt 0 ]; then
+  PROMPT="$*"
+else
+  printf '› '
+  IFS= read -r PROMPT
+  if [ -z "$PROMPT" ]; then
+    exec claude
+    exit 0
+  fi
+fi
+
+NAME=$(gen_name "$PROMPT")
+exec claude --name "${NAME:-Session}" "$PROMPT"
