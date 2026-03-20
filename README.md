@@ -195,4 +195,4 @@ claude plugins add playwright
 
 ## Поддержка
 
-Вопросы по скиллам и доступу к `insapp-db` MCP: Telegram @insapp_dev
+Вопросы по скиллам и доступу к `insapp-db` MCP: Telegram [@danielspe](https://t.me/danielspe)
