@@ -1,6 +1,10 @@
-# Настройка Яндекс Трекер MCP
+# Яндекс Трекер MCP
 
 MCP-сервер для Яндекс Трекера — 15 инструментов: управление задачами, ворклоги, аналитика по сотрудникам и командам. Работает через [Yandex Tracker API v2](https://cloud.yandex.ru/docs/tracker/about-api).
+
+**Исходный код:** [`mcp-servers/tracker/`](../../mcp-servers/tracker/) — [index.js](../../mcp-servers/tracker/index.js) | [api.js](../../mcp-servers/tracker/api.js) | [package.json](../../mcp-servers/tracker/package.json)
+
+**Скиллы:** [`/tracker`](SKILL.md) — интерактивный помощник | [`/tracker_report_active`](../tracker_report_active/SKILL.md) — отчёт активности | [`/tracker_add_task`](../tracker_add_task/SKILL.md) — создание задач
 
 ---
 
