@@ -21,7 +21,13 @@
 | [github-setup](skills/github-setup/) | `/github-setup` | Настройка SSH для GitHub, создание репо, подключение папки | — |
 | [legal_new_mfo](skills/legal_new_mfo/) | `/legal_new_mfo` | Генерация договоров лидогенерации МФО + обновление реестра | gdrive MCP |
 | [html-push](skills/html-push/) | `/html-push` | Деплой HTML на GitHub Pages с публичной ссылкой | Playwright, SSH |
+| [mfo-month-vendor](skills/mfo-month-vendor/) | `/mfo-month-vendor` | Сверка МФО по вендорам за месяц: листы партнёров + Итог | insapp-db MCP, gdrive MCP |
 | [report_claude_use](skills/report_claude_use/) | `/report_claude_use` | Отчёт по использованию Claude Code: HTML-дашборд | — |
+| [gitlab-find-dev-repos](skills/gitlab-find-dev-repos/) | — | Поиск всех репозиториев разработчика в GitLab | gitlab MCP |
+| [hh-resume-search](skills/hh-resume-search/) | — | Эффективный поиск кандидатов на hh.ru через Playwright | Playwright |
+| [playwright-tips](skills/playwright-tips/) | — | Блокировка JS-редиректов и обход anti-DDoS | Playwright |
+| [tracker-tips](skills/tracker-tips/) | — | Резолв аккаунтов Яндекс Трекера: маппинг логинов | tracker MCP |
+| [publick-push](skills/publick-push/) | `/publick_push` | Публикация скиллов в общий репозиторий | Git, SSH |
 
 ## Утилиты
 
