@@ -9,7 +9,7 @@
 ```
 list_merge_requests(scope="all", author_username="Фамилия", state="all", per_page=100)
 ```
-Попробовать варианты: `Damaskin`, `damaskin`, `DamaskinI`.
+Попробовать варианты: `Ivanov`, `ivanov`, `IvanovI`.
 
 Из результатов извлечь:
 - Все уникальные `project_id`
@@ -20,7 +20,7 @@ list_merge_requests(scope="all", author_username="Фамилия", state="all", 
 ```
 list_commits(project_id=N, author="Имя", since="...", per_page=1)
 ```
-Пройти по всем доступным project_id (1-19), чтобы найти проекты куда коммитил напрямую.
+Пройти по всем доступным project_id, чтобы найти проекты куда коммитил напрямую.
 
 ### Шаг 3: Сбор данных с with_stats
 ```
@@ -30,9 +30,9 @@ list_commits(project_id=N, author="Имя", since="...", until="...", per_page=1
 ## Почему это работает
 - `list_merge_requests` без `project_id` ищет глобально
 - `list_commits` — только в конкретном проекте
-- GitLab `author` в list_commits — substring match: `author=Ivan` найдёт `Ivan Damaskin`
+- GitLab `author` в list_commits — substring match: `author=Ivan` найдёт `Ivan Ivanov`
 - Разработчик может иметь несколько email-алиасов, но `author=Имя` ловит все
 
 ## Важно
-- Проекты 5, 7 — 404. Проекты >= 20 — не существуют.
-- Некоторые разработчики коммитят напрямую без MR (Дамаскин, Тарасов) — шаг 2 обязателен.
+- Некоторые разработчики коммитят напрямую без MR (фронтенд, DevOps) — шаг 2 обязателен.
+- Один человек может иметь разные git-имена и email в разных проектах — дедуплицируйте по SHA.
