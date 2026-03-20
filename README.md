@@ -28,6 +28,7 @@
 | [playwright-tips](skills/playwright-tips/) | — | Блокировка JS-редиректов и обход anti-DDoS | Playwright |
 | [tracker-tips](skills/tracker-tips/) | — | Резолв аккаунтов Яндекс Трекера: маппинг логинов | tracker MCP |
 | [publick-push](skills/publick-push/) | `/publick_push` | Публикация скиллов в общий репозиторий | Git, SSH |
+| [mfo-health-check](skills/mfo-health-check/) | `/mfo-health-check` | Диагностика финпродуктов: ошибки, комиссии, постбеки, выдачи | insapp-db MCP |
 
 ## Утилиты
 
