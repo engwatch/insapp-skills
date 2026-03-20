@@ -646,29 +646,62 @@ echo $PATH | tr ':' '\n' | grep local/bin
 
 ### tracker — для работы с Яндекс Трекером
 
-Используется скиллами `tracker_report_active` и `tracker_add_task`. Требует OAuth-токен Яндекса и ID организации.
+Используется скиллами `tracker`, `tracker_report_active`, `tracker_add_task`, `gitlab_fulltime_report`, `gitlab_compar`. Полная инструкция: [skills/tracker/SETUP.md](skills/tracker/SETUP.md).
 
-1. Получи OAuth-токен: [oauth.yandex.ru](https://oauth.yandex.ru) (приложение с правами на Трекер)
-2. ID организации — в URL трекера: `https://tracker.yandex.ru/` → настройки организации
-3. Установи MCP-сервер:
+Кратко:
+
+**Шаг 1. Создай OAuth-приложение**
+
+1. Открой https://oauth.yandex.ru/client/new
+2. Название: любое (например `Tracker MCP`), загрузи иконку (обязательное поле)
+3. Платформа: **Веб-сервисы**, Redirect URI: `https://oauth.yandex.ru/verification_code`
+4. Доступы: добавь `tracker:read` и `tracker:write`
+5. Создай приложение, скопируй **ClientID**
+
+**Шаг 2. Получи токен**
+
+1. Открой в браузере:
+   ```
+   https://oauth.yandex.ru/authorize?response_type=token&client_id=ТВОЙ_CLIENT_ID
+   ```
+2. Разреши доступ — скопируй `access_token` из URL (начинается с `y0_`)
+
+**Шаг 3. Установи MCP-сервер**
 
 ```bash
-git clone git@github.com:engwatch/insapp-skills.git /tmp/insapp-skills
-# Или возьми готовый из репозитория (если опубликован)
+mkdir -p ~/.mcp/tracker
+
+curl -o ~/.mcp/tracker/index.js \
+  https://raw.githubusercontent.com/engwatch/insapp-skills/main/mcp-servers/tracker/index.js
+
+curl -o ~/.mcp/tracker/api.js \
+  https://raw.githubusercontent.com/engwatch/insapp-skills/main/mcp-servers/tracker/api.js
+
+curl -o ~/.mcp/tracker/package.json \
+  https://raw.githubusercontent.com/engwatch/insapp-skills/main/mcp-servers/tracker/package.json
+
+cd ~/.mcp/tracker && npm install
 ```
 
+**Шаг 4. Подключи к Claude Code**
+
 Добавь в `~/.claude.json` → секция твоего проекта → `mcpServers`:
+
 ```json
 "tracker": {
   "type": "stdio",
   "command": "node",
-  "args": ["/путь/к/tracker-mcp/index.js"],
+  "args": ["/Users/ВАШ_ИМЯ/.mcp/tracker/index.js"],
   "env": {
     "YANDEX_OAUTH_TOKEN": "ВАШ_ТОКЕН",
-    "YANDEX_ORG_ID": "ВАШ_ORG_ID"
+    "YANDEX_ORG_ID": "8168995"
   }
 }
 ```
+
+В `~/.claude/settings.json` → `permissions.allow` добавь: `"mcp__tracker__*"`
+
+Перезапусти Claude Code — 15 инструментов трекера станут доступны.
 
 ### telemost — для создания встреч
 
