@@ -41,6 +41,7 @@
 | Гайд | Описание |
 |------|----------|
 | [claude-learning-system](guides/claude-learning-system/) | Система самообучения Claude Code: журналирование, навыки, долгосрочная память между сессиями |
+| [playwright-persistent-session](guides/playwright-persistent-session/) | Playwright с сохранением логинов: Google, Yandex и др. между сессиями |
 
 ## MCP-серверы
 
@@ -59,7 +60,7 @@
 | [gdrive](#gdrive) | `@alanse/mcp-server-google-workspace` | [SETUP.md](skills/meet/SETUP.md) |
 | [insapp-db](#insapp-db) | — | API-ключ от команды Insapp |
 | [telemost](#telemost) | — | [SETUP.md](skills/meet/SETUP.md) |
-| [Playwright](#playwright) | плагин Claude Code | `claude plugins add playwright` |
+| [Playwright](#playwright) | кастомный MCP | [инструкция](guides/playwright-persistent-session/) |
 
 ---
 
@@ -194,8 +195,15 @@ python3 -m venv venv
 
 ### Playwright
 
-```bash
-claude plugins add playwright
+Рекомендуется кастомный MCP с сохранением сессий (логины Google, Yandex и т.д.):
+**[Полная инструкция](guides/playwright-persistent-session/)**
+
+```json
+"playwright": {
+  "type": "stdio",
+  "command": "npx",
+  "args": ["@playwright/mcp@latest", "--user-data-dir", "/Users/ВАШ_ИМЯ/.playwright-profile"]
+}
 ```
 
 ---
