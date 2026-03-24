@@ -11,6 +11,7 @@
 | [gitlab_fulltime_report](skills/gitlab_fulltime_report/) | `/gitlab_fulltime_report` | Полный отчёт по разработчику за всё время: помесячная разбивка, сложность задач, HTML | gitlab MCP, tracker MCP |
 | [gitlab_compar](skills/gitlab_compar/) | `/gitlab_compar` | Сравнение команды за период: фичи, строки кода, сложность. HTML с вкладками | gitlab MCP, tracker MCP |
 | [report-mfo](skills/report-mfo/) | `/report-mfo` | МФО-отчёт по партнёру за период | insapp-db MCP |
+| [mfo-daily](skills/mfo-daily/) | `/mfo-daily` | Ежедневный МФО-отчёт по ВСЕМ партнёрам с трафиком за период | insapp-db MCP |
 | [meet](skills/meet/) | `/meet` | Встреча в Телемост + Google Календарь | gdrive MCP, telemost MCP |
 | [tracker](skills/tracker/) | `/tracker` | Интерактивный помощник Яндекс Трекера | tracker MCP |
 | [tracker_report_active](skills/tracker_report_active/) | `/tracker_report_active` | Отчёт по сотруднику из Трекера: задачи + часы | tracker MCP |
