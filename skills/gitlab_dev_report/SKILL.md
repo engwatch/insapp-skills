@@ -65,6 +65,11 @@ mcp__gitlab__list_merge_requests(project_id=<id>, created_after=<from>, state="a
 | MR acceptance rate | `merged / (merged + closed) * 100%` |
 | Фичи | уникальные branch names из MR (source_branch) |
 | Среднее время до merge | `merged_at - created_at` по merged MR |
+| Миграции (кол-во) | Количество файлов миграций БД в коммитах разработчика |
+
+#### Подсчёт миграций
+
+Для каждого коммита — запросить diff через `GET /projects/:id/repository/commits/:sha/diff` и посчитать файлы, путь которых содержит `/Migrations/` или `/Migration/` (case-insensitive). Строки миграций **включаются** в общий +/- счётчик, колонка «Мигр» показывает только количество файлов.
 
 ### Шаг 5. Подтяни описания задач из трекера (опционально)
 
@@ -110,9 +115,9 @@ mcp__tracker__get_issue(issueKey="QUEUE-XXXX")
 
 ## 🏆 Сводная таблица
 
-| Разработчик | Коммиты | +Строк | -Строк | Строк/день | MR | Acceptance |
-|-------------|---------|--------|--------|------------|-----|-----------|
-| Иванов И.   | 23      | 2140   | 890    | ~89        | 5  | 80%       |
+| Разработчик | Коммиты | +Строк | -Строк | Строк/день | Мигр | MR | Acceptance |
+|-------------|---------|--------|--------|------------|------|-----|-----------|
+| Иванов И.   | 23      | 2140   | 890    | ~89        | 3    | 5  | 80%       |
 
 ## 🔍 Инсайты
 
@@ -194,3 +199,15 @@ GitLab `list_commits` принимает `author` как строку совпа
 ### ⚠️ Значения +X / -Y в Google Sheets
 При записи в таблицу используй `valueInputOption: RAW` — иначе Google Sheets интерпретирует
 строки вида `+55 237 / -42` как формулы и выдаёт `#ERROR!` / `#NAME?`.
+
+---
+
+## Внешние GitLab-инстансы
+
+### gitlab.com — insappmappings
+
+- **Проект:** `dmtree.h/insappmappings` (ID: 37332742)
+- **Токен (read_api):** `glpat-MSKPWknpCV3OD6285l5sVGM6MQpvOjEKdTo1ZmRzaA8.01.171le9108`
+- **Только для чтения** из этого проекта. Не использовать для записи или других проектов на gitlab.com.
+- API: `https://gitlab.com/api/v4/projects/37332742/...`
+- Default branch — `master`, но коммиты идут в `develop` и feature-ветки. При запросе коммитов указывать `ref_name=develop` и другие активные ветки.
