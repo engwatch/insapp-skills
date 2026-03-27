@@ -11,6 +11,7 @@
 | [gitlab_fulltime_report](skills/gitlab_fulltime_report/) | `/gitlab_fulltime_report` | Полный отчёт по разработчику за всё время: помесячная разбивка, сложность задач, HTML | gitlab MCP, tracker MCP |
 | [gitlab_compar](skills/gitlab_compar/) | `/gitlab_compar` | Сравнение команды за период: фичи, строки кода, сложность. HTML с вкладками | gitlab MCP, tracker MCP |
 | [report-mfo](skills/report-mfo/) | `/report-mfo` | МФО-отчёт по партнёру за период | insapp-db MCP |
+| [mfo-daily](skills/mfo-daily/) | `/mfo-daily` | Ежедневный МФО-отчёт по ВСЕМ партнёрам с трафиком за период | insapp-db MCP |
 | [meet](skills/meet/) | `/meet` | Встреча в Телемост + Google Календарь | gdrive MCP, telemost MCP |
 | [tracker](skills/tracker/) | `/tracker` | Интерактивный помощник Яндекс Трекера | tracker MCP |
 | [tracker_report_active](skills/tracker_report_active/) | `/tracker_report_active` | Отчёт по сотруднику из Трекера: задачи + часы | tracker MCP |
@@ -35,6 +36,14 @@
 | Утилита | Описание |
 |---------|----------|
 | [cc](tools/cc/) | Обёртка для `claude` — автоименование сессий во вкладке терминала |
+| [statusline](tools/statusline/) | Статус-бар: контекст, дневной/недельный лимит, папка, сессия (авто-установка ИИ-агентом) |
+
+## Гайды
+
+| Гайд | Описание |
+|------|----------|
+| [claude-learning-system](guides/claude-learning-system/) | Система самообучения Claude Code: журналирование, навыки, долгосрочная память между сессиями |
+| [playwright-persistent-session](guides/playwright-persistent-session/) | Playwright с сохранением логинов: Google, Yandex и др. между сессиями |
 
 ## MCP-серверы
 
@@ -53,7 +62,7 @@
 | [gdrive](#gdrive) | `@alanse/mcp-server-google-workspace` | [SETUP.md](skills/meet/SETUP.md) |
 | [insapp-db](#insapp-db) | — | API-ключ от команды Insapp |
 | [telemost](#telemost) | — | [SETUP.md](skills/meet/SETUP.md) |
-| [Playwright](#playwright) | плагин Claude Code | `claude plugins add playwright` |
+| [Playwright](#playwright) | кастомный MCP | [инструкция](guides/playwright-persistent-session/) |
 
 ---
 
@@ -188,8 +197,15 @@ python3 -m venv venv
 
 ### Playwright
 
-```bash
-claude plugins add playwright
+Рекомендуется кастомный MCP с сохранением сессий (логины Google, Yandex и т.д.):
+**[Полная инструкция](guides/playwright-persistent-session/)**
+
+```json
+"playwright": {
+  "type": "stdio",
+  "command": "npx",
+  "args": ["@playwright/mcp@latest", "--user-data-dir", "/Users/ВАШ_ИМЯ/.playwright-profile"]
+}
 ```
 
 ---
