@@ -56,6 +56,11 @@ class MCPClient:
         with ThreadPoolExecutor(max_workers=len(queries)) as pool:
             return list(pool.map(lambda q: self.query(q[0], q[1]), queries))
 
+    def _reset_session(self):
+        """Сброс протухшей сессии — следующий query переинициализирует."""
+        print("MCP session reset")
+        self.session_id = None
+
     def query(self, sql, desc="dashboard"):
         self._ensure_session()
         for attempt in range(3):
@@ -71,16 +76,38 @@ class MCPClient:
                     "id": self._next_id(),
                 }, headers=self._headers(), timeout=120)
 
+                # Сессия протухла — сервер вернул 4xx
+                if resp.status_code in (401, 403, 404, 410):
+                    print(f"MCP session expired (HTTP {resp.status_code}), resetting")
+                    self._reset_session()
+                    self._ensure_session()
+                    if attempt < 2:
+                        continue
+                    return []
+
                 ct = resp.headers.get("Content-Type", "")
                 if "text/event-stream" in ct:
                     for line in resp.text.split("\n"):
                         if line.startswith("data: "):
-                            return self._parse(json.loads(line[6:]))
+                            result = self._parse(json.loads(line[6:]))
+                            if result is not None:
+                                return result
                 else:
-                    return self._parse(resp.json())
+                    result = self._parse(resp.json())
+                    if result is not None:
+                        return result
+
+                # Пустой ответ при 200 — возможно сессия сломана
+                if attempt < 2:
+                    print(f"MCP empty response (attempt {attempt+1}/3): {desc}, resetting session")
+                    self._reset_session()
+                    self._ensure_session()
+                    continue
             except (http_requests.exceptions.Timeout, http_requests.exceptions.ConnectionError):
                 print(f"MCP timeout/conn error (attempt {attempt+1}/3): {desc}")
                 if attempt < 2:
+                    self._reset_session()
+                    self._ensure_session()
                     continue
             except Exception as e:
                 print(f"MCP query error: {e}")
@@ -88,6 +115,7 @@ class MCPClient:
         return []
 
     def _parse(self, data):
+        """Возвращает list строк при успехе, [] при SQL-ошибке, None при невалидном ответе."""
         try:
             for item in data.get("result", {}).get("content", []):
                 if item.get("type") == "text":
@@ -96,6 +124,7 @@ class MCPClient:
                         return parsed.get("rows", [])
                     if parsed.get("error"):
                         print(f"SQL error: {parsed['error']}")
+                        return []
         except Exception as e:
             print(f"Parse error: {e}, data: {str(data)[:200]}")
-        return []
+        return None
