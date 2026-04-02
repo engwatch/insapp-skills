@@ -51,6 +51,13 @@
   <div class="card"><div class="label">Insapp доход</div><div class="value green" id="c-insapp">-</div></div>
 </div>
 
+<div id="partnerSubToggle" style="display:none; padding: 0 28px 12px;">
+  <div class="view-toggle">
+    <button id="subByDates" class="toggle-btn active" onclick="switchPartnerSub('dates')">По датам</button>
+    <button id="subByMfo" class="toggle-btn" onclick="switchPartnerSub('mfo')">По МФО</button>
+  </div>
+</div>
+
 <div class="table-wrap" id="tableWrap"></div>
 
 <script src="/static/app.js"></script>

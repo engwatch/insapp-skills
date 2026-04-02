@@ -30,12 +30,16 @@ function mkTh(t, cls, sortIdx) {
 }
 
 let viewMode = 'partner';
+let partnerSubSort = 'dates';
 let DATA = null;
 let MFO_DATA = null;
+let PARTNER_MFO = null;
 let expanded = {};
 let dayCache = {};
 let mfoExpanded = {};
 let mfoDayCache = {};
+let partnerMfoExpanded = {};
+let partnerMfoDayCache = {};
 let sortCol = null;
 let mfoSingleDays = null;
 let mfoSingleName = null;
@@ -98,8 +102,12 @@ function mfoSingleVal(r, col) {
 }
 
 function rerenderTable() {
-  if (viewMode === 'partner' && DATA) {
-    renderPartnerTable();
+  if (viewMode === 'partner') {
+    if (partnerSubSort === 'mfo' && PARTNER_MFO) {
+      renderPartnerMfoTable();
+    } else if (DATA) {
+      renderPartnerTable();
+    }
   } else if (viewMode === 'mfo') {
     var sel = document.getElementById('mfoSelect');
     if (sel.value === 'all' && MFO_DATA) {
@@ -119,8 +127,43 @@ function switchView(mode) {
   document.getElementById('toggleMfo').classList.toggle('active', mode === 'mfo');
   document.getElementById('partner').style.display = mode === 'partner' ? '' : 'none';
   document.getElementById('mfoSelect').style.display = mode === 'mfo' ? '' : 'none';
+  document.getElementById('partnerSubToggle').style.display = mode === 'partner' && DATA ? '' : 'none';
   document.getElementById('cards').style.display = 'none';
   document.getElementById('tableWrap').textContent = '';
+}
+
+function switchPartnerSub(mode) {
+  partnerSubSort = mode;
+  sortCol = null;
+  document.getElementById('subByDates').classList.toggle('active', mode === 'dates');
+  document.getElementById('subByMfo').classList.toggle('active', mode === 'mfo');
+  if (mode === 'mfo' && !PARTNER_MFO) {
+    loadPartnerMfoData();
+  } else {
+    rerenderTable();
+  }
+}
+
+async function loadPartnerMfoData() {
+  var partner = document.getElementById('partner').value;
+  var start = document.getElementById('start').value;
+  var end = document.getElementById('end').value;
+  var status = document.getElementById('status');
+  status.textContent = '';
+  var spinner = document.createElement('span');
+  spinner.className = 'spinner';
+  status.appendChild(spinner);
+  status.append(' \u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...');
+  try {
+    var resp = await fetch('/api/partner-mfo?partner=' + encodeURIComponent(partner) +
+      '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
+    PARTNER_MFO = await resp.json();
+    if (PARTNER_MFO.error) { status.textContent = PARTNER_MFO.error; return; }
+    status.textContent = '';
+    renderPartnerMfoTable();
+  } catch (e) {
+    status.textContent = '\u041e\u0448\u0438\u0431\u043a\u0430: ' + e.message;
+  }
 }
 
 /* Load dispatcher */
@@ -154,12 +197,20 @@ async function loadPartnerData() {
   expanded = {};
   dayCache = {};
   sortCol = null;
+  PARTNER_MFO = null;
+  partnerMfoExpanded = {};
+  partnerMfoDayCache = {};
   const resp = await fetch('/api/summary?partner=' + encodeURIComponent(partner) +
     '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
   DATA = await resp.json();
   if (DATA.error) { document.getElementById('status').textContent = DATA.error; return; }
   renderPartnerCards();
-  renderPartnerTable();
+  document.getElementById('partnerSubToggle').style.display = '';
+  if (partnerSubSort === 'mfo') {
+    await loadPartnerMfoData();
+  } else {
+    renderPartnerTable();
+  }
 }
 
 function renderPartnerCards() {
@@ -279,6 +330,122 @@ async function toggleDay(date) {
       dayCache[date] = data.mfo || [];
     } catch (e) { dayCache[date] = []; }
     renderPartnerTable();
+  }
+}
+
+/* Partner MFO sub-sort mode */
+
+function renderPartnerMfoTable() {
+  var wrap = document.getElementById('tableWrap');
+  var mfo = PARTNER_MFO.mfo;
+  var split = DATA.partner.split;
+  if (sortCol != null) mfo = sortDesc(mfo, function(x) { return partnerMfoVal(x, sortCol, split); });
+  if (!mfo.length) { wrap.textContent = ''; var em = document.createElement('div'); em.className = 'empty'; em.textContent = '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434'; wrap.appendChild(em); return; }
+
+  var tbl = document.createElement('table');
+  tbl.className = 'mode-partner';
+  var thead = document.createElement('thead');
+  var hr = document.createElement('tr');
+  ['', '\u041c\u0424\u041e', '', '\u041f\u0435\u0440\u0435\u0445.', '\u0410\u043d\u043a\u0435\u0442\u044b', '\u041e\u0442\u043a\u0430\u0437\u044b', '\u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e', '\u0412\u044b\u0434\u0430\u0447\u0438', '\u0412\u0445.\u041a\u0412',
+   '\u041f\u0430\u0440\u0442\u043d. ' + split + '%', 'Insapp ' + (100 - split) + '%', 'EPC', 'EPL'].forEach(function(t, i) {
+    hr.appendChild(mkTh(t, i === 7 ? 'col-issued' : null, i >= 3 ? i : null));
+  });
+  thead.appendChild(hr);
+  tbl.appendChild(thead);
+
+  var tbody = document.createElement('tbody');
+  for (var j = 0; j < mfo.length; j++) {
+    var r = mfo[j];
+    var pk = r.kv * split / 100, ik = r.kv * (100 - split) / 100;
+    var epc = r.transitions ? Math.round(r.kv / r.transitions) : null;
+    var epl = r.ankety ? Math.round(r.kv / r.ankety) : null;
+    var approved = r.ankety - r.rejected;
+    var isExp = partnerMfoExpanded[r.mfo];
+
+    var tr = document.createElement('tr');
+    tr.className = 'day-row';
+    (function(name) { tr.addEventListener('click', function() { togglePartnerMfo(name); }); })(r.mfo);
+    [mkCell(isExp ? '\u2212' : '+'), mkCell(r.mfo), mkCell(''),
+     mkCell(fmt(r.transitions)),
+     mkCell(fmt(r.ankety)), mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
+     mkCell(fmt(approved), pct(approved, r.ankety)),
+     mkCell(fmt(r.issued), pct(r.issued, approved), 'col-issued'),
+     mkCell(fmt(r.kv)), mkCell(fmt(Math.round(pk))), mkCell(fmt(Math.round(ik))),
+     mkCell(epc != null ? fmt(epc) : '\u2014'), mkCell(epl != null ? fmt(epl) : '\u2014')
+    ].forEach(function(td) { tr.appendChild(td); });
+    tbody.appendChild(tr);
+
+    if (isExp) {
+      if (partnerMfoDayCache[r.mfo]) {
+        appendPartnerMfoDates(tbody, partnerMfoDayCache[r.mfo], split);
+      } else {
+        tbody.appendChild(loadingRow(13));
+      }
+    }
+  }
+
+  var totT = PARTNER_MFO.mfo.reduce(function(s, r) { return s + r.transitions; }, 0);
+  var totA = PARTNER_MFO.mfo.reduce(function(s, r) { return s + r.ankety; }, 0);
+  var totR = PARTNER_MFO.mfo.reduce(function(s, r) { return s + r.rejected; }, 0);
+  var totI = PARTNER_MFO.mfo.reduce(function(s, r) { return s + r.issued; }, 0);
+  var totK = PARTNER_MFO.mfo.reduce(function(s, r) { return s + r.kv; }, 0);
+  var totAp = totA - totR;
+  var totEpc = totT ? Math.round(totK / totT) : null;
+  var totEpl = totA ? Math.round(totK / totA) : null;
+  var totalTr = document.createElement('tr');
+  totalTr.className = 'total-row';
+  [mkCell(''), mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(''), mkCell(fmt(totT)), mkCell(fmt(totA)),
+   mkCell(fmt(totR), pct(totR, totA)), mkCell(fmt(totAp), pct(totAp, totA)),
+   mkCell(fmt(totI), pct(totI, totAp), 'col-issued'),
+   mkCell(fmt(totK)), mkCell(fmt(Math.round(totK * split / 100))), mkCell(fmt(Math.round(totK * (100 - split) / 100))),
+   mkCell(totEpc != null ? fmt(totEpc) : '\u2014'), mkCell(totEpl != null ? fmt(totEpl) : '\u2014')
+  ].forEach(function(td) { totalTr.appendChild(td); });
+  tbody.appendChild(totalTr);
+
+  tbl.appendChild(tbody);
+  wrap.textContent = '';
+  wrap.appendChild(tbl);
+}
+
+function appendPartnerMfoDates(tbody, days, split) {
+  for (var i = 0; i < days.length; i++) {
+    var r = days[i];
+    var pk = r.kv * split / 100, ik = r.kv * (100 - split) / 100;
+    var epc = r.transitions ? Math.round(r.kv / r.transitions) : null;
+    var epl = r.ankety ? Math.round(r.kv / r.ankety) : null;
+    var approved = r.ankety - r.rejected;
+    var parts = r.date.slice(5).split('-');
+    var dd = parts[1] + '.' + parts[0];
+    var tr = document.createElement('tr');
+    tr.className = 'mfo-row';
+    [mkCell(''), mkCell(dd), mkCell(''),
+     mkCell(fmt(r.transitions)),
+     mkCell(fmt(r.ankety)), mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
+     mkCell(fmt(approved), pct(approved, r.ankety)),
+     mkCell(fmt(r.issued), pct(r.issued, approved), 'col-issued'),
+     mkCell(fmt(r.kv)), mkCell(fmt(Math.round(pk))), mkCell(fmt(Math.round(ik))),
+     mkCell(epc != null ? fmt(epc) : '\u2014'), mkCell(epl != null ? fmt(epl) : '\u2014')
+    ].forEach(function(td) { tr.appendChild(td); });
+    tbody.appendChild(tr);
+  }
+}
+
+async function togglePartnerMfo(mfoName) {
+  if (partnerMfoExpanded[mfoName]) { delete partnerMfoExpanded[mfoName]; renderPartnerMfoTable(); return; }
+  partnerMfoExpanded[mfoName] = true;
+  renderPartnerMfoTable();
+  if (!partnerMfoDayCache[mfoName]) {
+    var partner = document.getElementById('partner').value;
+    var start = document.getElementById('start').value;
+    var end = document.getElementById('end').value;
+    try {
+      var resp = await fetch('/api/partner-mfo-dates?partner=' + encodeURIComponent(partner) +
+        '&mfo=' + encodeURIComponent(mfoName) +
+        '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
+      var data = await resp.json();
+      partnerMfoDayCache[mfoName] = data.days || [];
+    } catch (e) { partnerMfoDayCache[mfoName] = []; }
+    renderPartnerMfoTable();
   }
 }
 
