@@ -268,8 +268,8 @@
   <h1>Настройка витрины</h1>
   <a href="/" class="back-link" style="margin-left: 8px;">&larr; Отчёты</a>
   <div class="env-toggle" style="margin-left: auto;">
-    <button class="env-btn active" onclick="switchEnv('test')">Тест</button>
-    <button class="env-btn" onclick="switchEnv('prod')">Прод</button>
+    <button class="env-btn active" data-env="test" onclick="switchEnv('test')">Тест</button>
+    <button class="env-btn" data-env="prod" onclick="switchEnv('prod')">Прод</button>
   </div>
 </div>
 
@@ -328,8 +328,9 @@ loadProducts();
 function switchEnv(env) {
   ENV = env;
   document.querySelectorAll('.env-btn').forEach(function(b) {
-    b.classList.toggle('active', b.textContent.trim().toLowerCase() === env);
-    b.classList.toggle('prod-active', env === 'prod' && b.textContent.trim().toLowerCase() === 'prod');
+    var isThis = b.dataset.env === env;
+    b.classList.toggle('active', isThis);
+    b.classList.toggle('prod-active', isThis && env === 'prod');
   });
   loadProducts();
 }
