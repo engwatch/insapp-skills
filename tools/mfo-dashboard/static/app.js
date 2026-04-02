@@ -8,10 +8,24 @@ function mkCell(v, sub, cls) {
   if (cls) td.className = cls;
   return td;
 }
-function mkTh(t, cls) {
+function mkTh(t, cls, sortIdx) {
   const th = document.createElement('th');
   th.textContent = t;
   if (cls) th.className = cls;
+  if (sortIdx != null) {
+    th.classList.add('sortable');
+    if (sortCol === sortIdx) {
+      const arrow = document.createElement('span');
+      arrow.className = 'sort-arrow';
+      arrow.textContent = ' \u2193';
+      th.appendChild(arrow);
+    }
+    th.addEventListener('click', function(e) {
+      e.stopPropagation();
+      sortCol = sortCol === sortIdx ? null : sortIdx;
+      rerenderTable();
+    });
+  }
   return th;
 }
 
@@ -22,15 +36,85 @@ let expanded = {};
 let dayCache = {};
 let mfoExpanded = {};
 let mfoDayCache = {};
+let sortCol = null;
+let mfoSingleDays = null;
+let mfoSingleName = null;
 
 const today = new Date().toISOString().slice(0, 10);
 document.getElementById('start').value = today;
 document.getElementById('end').value = today;
 
+/* Sort helpers */
+
+function sortDesc(arr, valFn) {
+  return arr.slice().sort(function(a, b) { return (valFn(b) || 0) - (valFn(a) || 0); });
+}
+
+function partnerMfoVal(r, col, split) {
+  var ap = r.ankety - r.rejected;
+  switch(col) {
+    case 3: return r.transitions;
+    case 4: return r.ankety;
+    case 5: return r.rejected;
+    case 6: return ap;
+    case 7: return r.issued;
+    case 8: return r.kv;
+    case 9: return r.kv * split / 100;
+    case 10: return r.kv * (100 - split) / 100;
+    case 11: return r.transitions ? r.kv / r.transitions : 0;
+    case 12: return r.ankety ? r.kv / r.ankety : 0;
+    default: return 0;
+  }
+}
+
+function mfoAllVal(r, col) {
+  var ap = r.ankety - r.rejected;
+  switch(col) {
+    case 2: return r.transitions;
+    case 3: return r.ankety;
+    case 4: return r.rejected;
+    case 5: return ap;
+    case 6: return r.issued;
+    case 7: return r.kv;
+    case 8: return r.transitions ? r.kv / r.transitions : 0;
+    case 9: return r.ankety ? r.kv / r.ankety : 0;
+    default: return 0;
+  }
+}
+
+function mfoSingleVal(r, col) {
+  var ap = r.ankety - r.rejected;
+  switch(col) {
+    case 1: return r.transitions;
+    case 2: return r.ankety;
+    case 3: return r.rejected;
+    case 4: return ap;
+    case 5: return r.issued;
+    case 6: return r.kv;
+    case 7: return r.transitions ? r.kv / r.transitions : 0;
+    case 8: return r.ankety ? r.kv / r.ankety : 0;
+    default: return 0;
+  }
+}
+
+function rerenderTable() {
+  if (viewMode === 'partner' && DATA) {
+    renderPartnerTable();
+  } else if (viewMode === 'mfo') {
+    var sel = document.getElementById('mfoSelect');
+    if (sel.value === 'all' && MFO_DATA) {
+      renderMfoAllTable();
+    } else if (mfoSingleDays) {
+      renderMfoSingleTable(mfoSingleDays, mfoSingleName);
+    }
+  }
+}
+
 /* View toggle */
 
 function switchView(mode) {
   viewMode = mode;
+  sortCol = null;
   document.getElementById('togglePartner').classList.toggle('active', mode === 'partner');
   document.getElementById('toggleMfo').classList.toggle('active', mode === 'mfo');
   document.getElementById('partner').style.display = mode === 'partner' ? '' : 'none';
@@ -69,6 +153,7 @@ async function loadPartnerData() {
   const end = document.getElementById('end').value;
   expanded = {};
   dayCache = {};
+  sortCol = null;
   const resp = await fetch('/api/summary?partner=' + encodeURIComponent(partner) +
     '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
   DATA = await resp.json();
@@ -102,7 +187,7 @@ function renderPartnerTable() {
   const hr = document.createElement('tr');
   ['', '\u0414\u0430\u0442\u0430', '\u041e\u0442\u043a\u0440.', '\u041f\u0435\u0440\u0435\u0445.', '\u0410\u043d\u043a\u0435\u0442\u044b', '\u041e\u0442\u043a\u0430\u0437\u044b', '\u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e', '\u0412\u044b\u0434\u0430\u0447\u0438', '\u0412\u0445.\u041a\u0412',
    '\u041f\u0430\u0440\u0442\u043d. ' + split + '%', 'Insapp ' + (100 - split) + '%', 'EPC', 'EPL'].forEach((t, i) => {
-    hr.appendChild(mkTh(t, i === 7 ? 'col-issued' : null));
+    hr.appendChild(mkTh(t, i === 7 ? 'col-issued' : null, i >= 2 ? i : null));
   });
   thead.appendChild(hr);
   tbl.appendChild(thead);
@@ -130,7 +215,11 @@ function renderPartnerTable() {
     tbody.appendChild(tr);
 
     if (isExp) {
-      if (dayCache[r.date]) { appendPartnerMfoRows(tbody, dayCache[r.date], split); }
+      if (dayCache[r.date]) {
+        var mfoRows = dayCache[r.date];
+        if (sortCol != null) mfoRows = sortDesc(mfoRows, function(x) { return partnerMfoVal(x, sortCol, split); });
+        appendPartnerMfoRows(tbody, mfoRows, split);
+      }
       else { tbody.appendChild(loadingRow(13)); }
     }
   }
@@ -200,6 +289,9 @@ async function loadMfoData() {
   var end = document.getElementById('end').value;
   mfoExpanded = {};
   mfoDayCache = {};
+  sortCol = null;
+  mfoSingleDays = null;
+  mfoSingleName = null;
   var resp = await fetch('/api/mfo-summary?start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
   MFO_DATA = await resp.json();
   if (MFO_DATA.error) { document.getElementById('status').textContent = MFO_DATA.error; return; }
@@ -232,12 +324,15 @@ async function loadMfoData() {
 async function loadMfoSingle(mfoName) {
   var start = document.getElementById('start').value;
   var end = document.getElementById('end').value;
+  sortCol = null;
   var resp = await fetch('/api/mfo-dates?mfo=' + encodeURIComponent(mfoName) +
     '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
   var data = await resp.json();
   if (data.error) { document.getElementById('status').textContent = data.error; return; }
-  renderMfoCards(null, data.days);
-  renderMfoSingleTable(data.days, mfoName);
+  mfoSingleDays = data.days || [];
+  mfoSingleName = mfoName;
+  renderMfoCards(null, mfoSingleDays);
+  renderMfoSingleTable(mfoSingleDays, mfoName);
 }
 
 function renderMfoCards(mfoList, days) {
@@ -254,6 +349,7 @@ function renderMfoCards(mfoList, days) {
 function renderMfoAllTable() {
   var wrap = document.getElementById('tableWrap');
   var mfo = MFO_DATA.mfo;
+  if (sortCol != null) mfo = sortDesc(mfo, function(x) { return mfoAllVal(x, sortCol); });
   if (!mfo.length) { wrap.textContent = ''; var em = document.createElement('div'); em.className = 'empty'; em.textContent = '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434'; wrap.appendChild(em); return; }
 
   var tbl = document.createElement('table');
@@ -261,7 +357,7 @@ function renderMfoAllTable() {
   var thead = document.createElement('thead');
   var hr = document.createElement('tr');
   ['', '\u041c\u0424\u041e', '\u041f\u0435\u0440\u0435\u0445.', '\u0410\u043d\u043a\u0435\u0442\u044b', '\u041e\u0442\u043a\u0430\u0437\u044b', '\u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e', '\u0412\u044b\u0434\u0430\u0447\u0438', '\u0412\u0445.\u041a\u0412', 'EPC', 'EPL'].forEach(function(t, i) {
-    hr.appendChild(mkTh(t, i === 6 ? 'col-issued' : null));
+    hr.appendChild(mkTh(t, i === 6 ? 'col-issued' : null, i >= 2 ? i : null));
   });
   thead.appendChild(hr);
   tbl.appendChild(thead);
@@ -292,11 +388,11 @@ function renderMfoAllTable() {
     }
   }
 
-  var totT = mfo.reduce((s, r) => s + r.transitions, 0);
-  var totA = mfo.reduce((s, r) => s + r.ankety, 0);
-  var totR = mfo.reduce((s, r) => s + r.rejected, 0);
-  var totI = mfo.reduce((s, r) => s + r.issued, 0);
-  var totK = mfo.reduce((s, r) => s + r.kv, 0);
+  var totT = MFO_DATA.mfo.reduce((s, r) => s + r.transitions, 0);
+  var totA = MFO_DATA.mfo.reduce((s, r) => s + r.ankety, 0);
+  var totR = MFO_DATA.mfo.reduce((s, r) => s + r.rejected, 0);
+  var totI = MFO_DATA.mfo.reduce((s, r) => s + r.issued, 0);
+  var totK = MFO_DATA.mfo.reduce((s, r) => s + r.kv, 0);
   var totAp = totA - totR;
   var totEpc = totT ? Math.round(totK / totT) : null;
   var totEpl = totA ? Math.round(totK / totA) : null;
@@ -354,21 +450,22 @@ async function toggleMfoExpand(mfoName) {
 
 function renderMfoSingleTable(days, mfoName) {
   var wrap = document.getElementById('tableWrap');
-  if (!days.length) { wrap.textContent = ''; var em = document.createElement('div'); em.className = 'empty'; em.textContent = '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434'; wrap.appendChild(em); return; }
+  var sortedDays = sortCol != null ? sortDesc(days, function(x) { return mfoSingleVal(x, sortCol); }) : days;
+  if (!sortedDays.length) { wrap.textContent = ''; var em = document.createElement('div'); em.className = 'empty'; em.textContent = '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434'; wrap.appendChild(em); return; }
 
   var tbl = document.createElement('table');
   tbl.className = 'mode-mfo-single';
   var thead = document.createElement('thead');
   var hr = document.createElement('tr');
   ['\u0414\u0430\u0442\u0430', '\u041f\u0435\u0440\u0435\u0445.', '\u0410\u043d\u043a\u0435\u0442\u044b', '\u041e\u0442\u043a\u0430\u0437\u044b', '\u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e', '\u0412\u044b\u0434\u0430\u0447\u0438', '\u0412\u0445.\u041a\u0412', 'EPC', 'EPL'].forEach(function(t, i) {
-    hr.appendChild(mkTh(t, i === 5 ? 'col-issued' : null));
+    hr.appendChild(mkTh(t, i === 5 ? 'col-issued' : null, i >= 1 ? i : null));
   });
   thead.appendChild(hr);
   tbl.appendChild(thead);
 
   var tbody = document.createElement('tbody');
-  for (var i = 0; i < days.length; i++) {
-    var r = days[i];
+  for (var i = 0; i < sortedDays.length; i++) {
+    var r = sortedDays[i];
     var approved = r.ankety - r.rejected;
     var epc = r.transitions ? Math.round(r.kv / r.transitions) : null;
     var epl = r.ankety ? Math.round(r.kv / r.ankety) : null;
@@ -429,6 +526,7 @@ function loadingRow(cols) {
 
 document.getElementById('mfoSelect').addEventListener('change', function() {
   if (!MFO_DATA) return;
+  sortCol = null;
   var sel = document.getElementById('mfoSelect');
   if (sel.value === 'all') {
     renderMfoCards(MFO_DATA.mfo);

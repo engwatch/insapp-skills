@@ -6,7 +6,8 @@
 import os
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, send_from_directory
-from config import PARTNERS, DATE_RE
+import requests as req
+from config import PARTNERS, DATE_RE, SHOWCASE_API, SHOWCASE_AUTH_INTERNAL, SHOWCASE_AUTH_CACHE
 from mcp_client import MCPClient
 
 mcp = MCPClient()
@@ -42,66 +43,71 @@ def api_summary():
         return jsonify(error="unknown partner"), 400
 
     pid = p["id"]
-    end_excl = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    # Wide range for index seek + CAST for accurate date filtering (Created is datetimeoffset +03:00)
+    start_w = (datetime.strptime(start, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    end_w = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
+    pf = f"ak.PartnerId='{pid}' AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start_w}' AND a.Created<'{end_w}' AND CAST(a.Created AS DATE)>='{start}' AND CAST(a.Created AS DATE)<='{end}'"
 
-    pf = f"ak.PartnerId='{pid}' AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start}' AND a.Created<'{end_excl}'"
-
-    opens, trans, anke, rej, iss, anke_total_rows = mcp.query_parallel([
-        (f"""SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as v
-        FROM Applications a JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
-        WHERE {pf} GROUP BY CAST(a.Created AS DATE)""", "opens"),
-
-        (f"""SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as v
-        FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
-          JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
-        WHERE ff.SelectedDate IS NOT NULL AND {pf}
-        GROUP BY CAST(a.Created AS DATE)""", "transitions"),
-
-        (f"""SELECT CAST(a.Created AS DATE) as dt, COUNT(DISTINCT s.ApplicationId) as v
-        FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId
-          JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
-        WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6' AND {pf}
-        GROUP BY CAST(a.Created AS DATE)""", "ankety"),
-
-        (f"""SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as v
-        FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
-          JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
-        WHERE ff.OfferStatusTypeId=3 AND {pf}
-        GROUP BY CAST(a.Created AS DATE)""", "rejections"),
-
-        (f"""SELECT dt, COUNT(*) as issued, SUM(kv) as kv FROM (
-          SELECT DISTINCT a.ApplicationId, CAST(a.Created AS DATE) as dt, a.IncomingComissionAmount as kv
+    rows = mcp.query(f"""
+        WITH opens AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as opens
+          FROM Applications a JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
+          WHERE {pf} GROUP BY CAST(a.Created AS DATE)
+        ),
+        transitions AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as transitions
+          FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
+            JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
+          WHERE ff.SelectedDate IS NOT NULL AND {pf}
+          GROUP BY CAST(a.Created AS DATE)
+        ),
+        ankety AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(DISTINCT s.ApplicationId) as ankety
           FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId
             JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
-            JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id
-            JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6
-          WHERE stt.[Index]=305 AND {pf}
-        ) sub GROUP BY dt""", "issued"),
+          WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6' AND {pf}
+          GROUP BY CAST(a.Created AS DATE)
+        ),
+        rejections AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as rejected
+          FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
+            JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
+          WHERE ff.OfferStatusTypeId=3 AND {pf}
+          GROUP BY CAST(a.Created AS DATE)
+        ),
+        issued AS (
+          SELECT dt, COUNT(*) as issued, SUM(kv) as kv FROM (
+            SELECT DISTINCT a.ApplicationId, CAST(a.Created AS DATE) as dt, a.IncomingComissionAmount as kv
+            FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId
+              JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
+              JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id
+              JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6
+            WHERE stt.[Index]=305 AND {pf}
+          ) sub GROUP BY dt
+        ),
+        ankety_total AS (
+          SELECT COUNT(DISTINCT s.ApplicationId) as ankety_total
+          FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId
+            JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
+          WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6' AND {pf}
+        )
+        SELECT o.dt, o.opens, ISNULL(t.transitions,0) as transitions,
+          ISNULL(an.ankety,0) as ankety, ISNULL(r.rejected,0) as rejected,
+          ISNULL(i.issued,0) as issued, ISNULL(i.kv,0) as kv, at.ankety_total
+        FROM opens o
+          LEFT JOIN transitions t ON o.dt=t.dt
+          LEFT JOIN ankety an ON o.dt=an.dt
+          LEFT JOIN rejections r ON o.dt=r.dt
+          LEFT JOIN issued i ON o.dt=i.dt
+          CROSS JOIN ankety_total at
+        ORDER BY o.dt""", "partner summary")
 
-        (f"""SELECT COUNT(DISTINCT s.ApplicationId) as v
-        FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId
-          JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
-        WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6' AND {pf}""", "ankety total"),
-    ])
+    result = [{"date": str(r["dt"])[:10], "opens": r["opens"], "transitions": r["transitions"],
+               "ankety": r["ankety"], "rejected": r["rejected"],
+               "issued": r["issued"], "kv": flt(r["kv"])} for r in rows]
 
-    # Merge по дням
-    days = {}
-    for r in opens:
-        d = str(r["dt"])[:10]; days.setdefault(d, {})["opens"] = r["v"]
-    for r in trans:
-        d = str(r["dt"])[:10]; days.setdefault(d, {})["transitions"] = r["v"]
-    for r in anke:
-        d = str(r["dt"])[:10]; days.setdefault(d, {})["ankety"] = r["v"]
-    for r in rej:
-        d = str(r["dt"])[:10]; days.setdefault(d, {})["rejected"] = r["v"]
-    for r in iss:
-        d = str(r["dt"])[:10]; dd = days.setdefault(d, {}); dd["issued"] = r["issued"]; dd["kv"] = flt(r["kv"])
-
-    result = [{"date": dt, "opens": days[dt].get("opens", 0), "transitions": days[dt].get("transitions", 0),
-               "ankety": days[dt].get("ankety", 0), "rejected": days[dt].get("rejected", 0),
-               "issued": days[dt].get("issued", 0), "kv": days[dt].get("kv", 0)} for dt in sorted(days)]
-
-    return jsonify(partner=p, days=result, ankety_total=anke_total_rows[0]["v"] if anke_total_rows else 0)
+    ankety_total = rows[0]["ankety_total"] if rows else 0
+    return jsonify(partner=p, days=result, ankety_total=ankety_total)
 
 
 @app.route("/api/day")
@@ -170,50 +176,52 @@ def api_mfo_summary():
     end = safe_date(request.args.get("end"))
     if not start or not end:
         return jsonify(error="start/end required"), 400
-    end_excl = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
-    af = f"a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start}' AND a.Created<'{end_excl}'"
+    start_w = (datetime.strptime(start, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    end_w = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
+    af = f"a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start_w}' AND a.Created<'{end_w}' AND CAST(a.Created AS DATE)>='{start}' AND CAST(a.Created AS DATE)<='{end}'"
 
-    trans, anke, rej, iss = mcp.query_parallel([
-        (f"""SELECT fo.Name as mfo, COUNT(*) as v
-        FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId
-          JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-        WHERE ff.SelectedDate IS NOT NULL AND {af}
-        GROUP BY fo.Name""", "mfo transitions"),
+    rows = mcp.query(f"""
+        WITH transitions AS (
+          SELECT fo.Name as mfo, COUNT(*) as transitions
+          FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+          WHERE ff.SelectedDate IS NOT NULL AND {af}
+          GROUP BY fo.Name
+        ),
+        ankety AS (
+          SELECT fo.Name as mfo, COUNT(DISTINCT s.ApplicationId) as ankety
+          FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.SelectedDate IS NOT NULL
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+            JOIN ApplicationStatuses s ON a.ApplicationId=s.ApplicationId
+          WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6' AND {af}
+          GROUP BY fo.Name
+        ),
+        rejections AS (
+          SELECT fo.Name as mfo, COUNT(*) as rejected
+          FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+          WHERE ff.OfferStatusTypeId=3 AND {af}
+          GROUP BY fo.Name
+        ),
+        issued AS (
+          SELECT fo.Name as mfo, COUNT(*) as issued, SUM(kv) as kv FROM (
+            SELECT DISTINCT a.ApplicationId, a.IncomingComissionAmount as kv, ff.FinOrgId
+            FROM Applications a JOIN ApplicationStatuses s ON a.ApplicationId=s.ApplicationId
+              JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id
+              JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6
+            WHERE stt.[Index]=305 AND {af}
+          ) sub JOIN FinOrgs fo ON sub.FinOrgId=fo.FinOrgId GROUP BY fo.Name
+        )
+        SELECT t.mfo, t.transitions, ISNULL(an.ankety,0) as ankety,
+          ISNULL(r.rejected,0) as rejected, ISNULL(i.issued,0) as issued, ISNULL(i.kv,0) as kv
+        FROM transitions t
+          LEFT JOIN ankety an ON t.mfo=an.mfo
+          LEFT JOIN rejections r ON t.mfo=r.mfo
+          LEFT JOIN issued i ON t.mfo=i.mfo
+        ORDER BY t.transitions DESC""", "mfo summary")
 
-        (f"""SELECT fo.Name as mfo, COUNT(DISTINCT s.ApplicationId) as v
-        FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.SelectedDate IS NOT NULL
-          JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-          JOIN ApplicationStatuses s ON a.ApplicationId=s.ApplicationId
-        WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6' AND {af}
-        GROUP BY fo.Name""", "mfo ankety"),
-
-        (f"""SELECT fo.Name as mfo, COUNT(*) as v
-        FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId
-          JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-        WHERE ff.OfferStatusTypeId=3 AND {af}
-        GROUP BY fo.Name""", "mfo rejections"),
-
-        (f"""SELECT fo.Name as mfo, COUNT(*) as issued, SUM(kv) as kv FROM (
-          SELECT DISTINCT a.ApplicationId, a.IncomingComissionAmount as kv, ff.FinOrgId
-          FROM Applications a JOIN ApplicationStatuses s ON a.ApplicationId=s.ApplicationId
-            JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id
-            JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6
-          WHERE stt.[Index]=305 AND {af}
-        ) sub JOIN FinOrgs fo ON sub.FinOrgId=fo.FinOrgId GROUP BY fo.Name""", "mfo issued"),
-    ])
-
-    # Merge by MFO name
-    mfos = {}
-    for r in trans:
-        mfos[r["mfo"]] = {"mfo": r["mfo"], "transitions": r["v"], "ankety": 0, "rejected": 0, "issued": 0, "kv": 0}
-    for r in anke:
-        if r["mfo"] in mfos: mfos[r["mfo"]]["ankety"] = r["v"]
-    for r in rej:
-        if r["mfo"] in mfos: mfos[r["mfo"]]["rejected"] = r["v"]
-    for r in iss:
-        if r["mfo"] in mfos: mfos[r["mfo"]]["issued"] = r["issued"]; mfos[r["mfo"]]["kv"] = flt(r["kv"])
-
-    result = sorted(mfos.values(), key=lambda x: x["transitions"], reverse=True)
+    result = [{"mfo": r["mfo"], "transitions": r["transitions"], "ankety": r["ankety"],
+               "rejected": r["rejected"], "issued": r["issued"], "kv": flt(r["kv"])} for r in rows]
     return jsonify(mfo=result)
 
 
@@ -225,56 +233,97 @@ def api_mfo_dates():
     end = safe_date(request.args.get("end"))
     if not mfo_name or not start or not end:
         return jsonify(error="mfo/start/end required"), 400
-    end_excl = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
-    af = f"a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start}' AND a.Created<'{end_excl}'"
+    start_w = (datetime.strptime(start, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    end_w = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
+    af = f"a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start_w}' AND a.Created<'{end_w}' AND CAST(a.Created AS DATE)>='{start}' AND CAST(a.Created AS DATE)<='{end}'"
     mf = f"fo.Name=N'{mfo_safe}'"
 
-    trans, anke, rej, iss = mcp.query_parallel([
-        (f"""SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as v
-        FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId
-          JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-        WHERE ff.SelectedDate IS NOT NULL AND {mf} AND {af}
-        GROUP BY CAST(a.Created AS DATE)""", f"mfo-d trans {mfo_name}"),
-
-        (f"""SELECT CAST(a.Created AS DATE) as dt, COUNT(DISTINCT s.ApplicationId) as v
-        FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.SelectedDate IS NOT NULL
-          JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-          JOIN ApplicationStatuses s ON a.ApplicationId=s.ApplicationId
-        WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6' AND {mf} AND {af}
-        GROUP BY CAST(a.Created AS DATE)""", f"mfo-d ankety {mfo_name}"),
-
-        (f"""SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as v
-        FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId
-          JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-        WHERE ff.OfferStatusTypeId=3 AND {mf} AND {af}
-        GROUP BY CAST(a.Created AS DATE)""", f"mfo-d rej {mfo_name}"),
-
-        (f"""SELECT dt, COUNT(*) as issued, SUM(kv) as kv FROM (
-          SELECT DISTINCT a.ApplicationId, CAST(a.Created AS DATE) as dt, a.IncomingComissionAmount as kv
-          FROM Applications a JOIN ApplicationStatuses s ON a.ApplicationId=s.ApplicationId
-            JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id
-            JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6
+    rows = mcp.query(f"""
+        WITH transitions AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as transitions
+          FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId
             JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-          WHERE stt.[Index]=305 AND {mf} AND {af}
-        ) sub GROUP BY dt""", f"mfo-d issued {mfo_name}"),
-    ])
+          WHERE ff.SelectedDate IS NOT NULL AND {mf} AND {af}
+          GROUP BY CAST(a.Created AS DATE)
+        ),
+        ankety AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(DISTINCT s.ApplicationId) as ankety
+          FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.SelectedDate IS NOT NULL
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+            JOIN ApplicationStatuses s ON a.ApplicationId=s.ApplicationId
+          WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6' AND {mf} AND {af}
+          GROUP BY CAST(a.Created AS DATE)
+        ),
+        rejections AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as rejected
+          FROM Applications a JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+          WHERE ff.OfferStatusTypeId=3 AND {mf} AND {af}
+          GROUP BY CAST(a.Created AS DATE)
+        ),
+        issued AS (
+          SELECT dt, COUNT(*) as issued, SUM(kv) as kv FROM (
+            SELECT DISTINCT a.ApplicationId, CAST(a.Created AS DATE) as dt, a.IncomingComissionAmount as kv
+            FROM Applications a JOIN ApplicationStatuses s ON a.ApplicationId=s.ApplicationId
+              JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id
+              JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6
+              JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+            WHERE stt.[Index]=305 AND {mf} AND {af}
+          ) sub GROUP BY dt
+        )
+        SELECT t.dt, t.transitions, ISNULL(an.ankety,0) as ankety,
+          ISNULL(r.rejected,0) as rejected, ISNULL(i.issued,0) as issued, ISNULL(i.kv,0) as kv
+        FROM transitions t
+          LEFT JOIN ankety an ON t.dt=an.dt
+          LEFT JOIN rejections r ON t.dt=r.dt
+          LEFT JOIN issued i ON t.dt=i.dt
+        ORDER BY t.dt""", f"mfo-dates {mfo_name}")
 
-    # Merge by date
-    days = {}
-    for r in trans:
-        d = str(r["dt"])[:10]; days[d] = {"transitions": r["v"], "ankety": 0, "rejected": 0, "issued": 0, "kv": 0}
-    for r in anke:
-        d = str(r["dt"])[:10];
-        if d in days: days[d]["ankety"] = r["v"]
-    for r in rej:
-        d = str(r["dt"])[:10];
-        if d in days: days[d]["rejected"] = r["v"]
-    for r in iss:
-        d = str(r["dt"])[:10];
-        if d in days: days[d]["issued"] = r["issued"]; days[d]["kv"] = flt(r["kv"])
-
-    result = [{"date": dt, **days[dt]} for dt in sorted(days)]
+    result = [{"date": str(r["dt"])[:10], "transitions": r["transitions"], "ankety": r["ankety"],
+               "rejected": r["rejected"], "issued": r["issued"], "kv": flt(r["kv"])} for r in rows]
     return jsonify(days=result)
+
+
+## ── Showcase (витрина) ──────────────────────────────
+
+def _showcase_base(env):
+    return SHOWCASE_API.get(env, SHOWCASE_API["test"])
+
+
+@app.route("/showcase")
+def showcase():
+    return render_template("showcase.html")
+
+
+@app.route("/api/showcase/products", methods=["POST"])
+def showcase_products():
+    env = request.json.get("env", "test") if request.is_json else "test"
+    base = _showcase_base(env)
+    r = req.post(f"{base}/Internal/GetReferralProducts",
+                 headers={"Authorization": SHOWCASE_AUTH_INTERNAL},
+                 json={}, timeout=15)
+    return jsonify(r.json()), r.status_code
+
+
+@app.route("/api/showcase/update", methods=["POST"])
+def showcase_update():
+    data = request.get_json(force=True)
+    env = data.pop("env", "test")
+    base = _showcase_base(env)
+    r = req.post(f"{base}/Internal/UpdateOrderReferralProducts",
+                 headers={"Authorization": SHOWCASE_AUTH_INTERNAL,
+                           "Content-Type": "application/json"},
+                 json=data, timeout=15)
+    return jsonify(r.json()), r.status_code
+
+
+@app.route("/api/showcase/invalidate", methods=["POST"])
+def showcase_invalidate():
+    env = request.json.get("env", "test") if request.is_json else "test"
+    base = _showcase_base(env)
+    r = req.get(f"{base}/Dictionaries/InvalidateCaches",
+                headers={"Authorization": SHOWCASE_AUTH_CACHE}, timeout=15)
+    return jsonify(r.json()), r.status_code
 
 
 if __name__ == "__main__":

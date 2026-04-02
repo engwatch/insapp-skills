@@ -204,6 +204,11 @@ tbody td.col-issued { color: var(--v); font-weight: 700; background: rgba(29,78,
 tbody tr.mfo-row td.col-issued { color: var(--v); font-weight: 600; }
 tbody tr.total-row td.col-issued { color: var(--v); }
 
+/* ── Sortable headers ── */
+thead th.sortable { cursor: pointer; user-select: none; transition: color .15s; }
+thead th.sortable:hover { color: var(--t2); }
+.sort-arrow { font-weight: 400; color: var(--v); }
+
 /* ── Percent sub-text ── */
 .pct { font-size: 11px; font-weight: 400; color: var(--t4); }
 

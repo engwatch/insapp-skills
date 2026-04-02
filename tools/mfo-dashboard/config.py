@@ -5,7 +5,7 @@ import re
 
 # MCP
 MCP_URL = os.getenv("INSAPP_DB_URL", "https://db-mcp.insapp.pro/mcp")
-MCP_KEY = os.getenv("INSAPP_DB_API_KEY", "YOUR_API_KEY_HERE")
+MCP_KEY = os.getenv("INSAPP_DB_API_KEY", "810075b46868cd6e240576f92630d5ca32f971512cbeaf6e")
 
 # Партнёры: ключ, PartnerId, название, сплит партнёра (%)
 PARTNERS = {
@@ -14,3 +14,11 @@ PARTNERS = {
 }
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# Referral Products API
+SHOWCASE_API = {
+    "test": "https://test-api.insapp.pro",
+    "prod": "https://api.insapp.pro",
+}
+SHOWCASE_AUTH_INTERNAL = "20484668CF7C4395B8BE8D0FE1C2NNET"
+SHOWCASE_AUTH_CACHE = "DBB9EE36046E47EF82C4E515EEFCD60C"
