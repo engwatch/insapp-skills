@@ -58,7 +58,7 @@ class MCPClient:
 
     def query(self, sql, desc="dashboard"):
         self._ensure_session()
-        for attempt in range(2):
+        for attempt in range(3):
             try:
                 resp = self._http.post(MCP_URL, json={
                     "jsonrpc": "2.0", "method": "tools/call",
@@ -78,9 +78,9 @@ class MCPClient:
                             return self._parse(json.loads(line[6:]))
                 else:
                     return self._parse(resp.json())
-            except http_requests.exceptions.Timeout:
-                print(f"MCP timeout (attempt {attempt+1}/2): {desc}")
-                if attempt == 0:
+            except (http_requests.exceptions.Timeout, http_requests.exceptions.ConnectionError):
+                print(f"MCP timeout/conn error (attempt {attempt+1}/3): {desc}")
+                if attempt < 2:
                     continue
             except Exception as e:
                 print(f"MCP query error: {e}")
