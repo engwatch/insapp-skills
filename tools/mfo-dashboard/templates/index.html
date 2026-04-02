@@ -20,12 +20,19 @@
   </svg>
   <div class="sep"></div>
   <h1>Отчёты МФО</h1>
+  <div class="view-toggle">
+    <button id="togglePartner" class="toggle-btn active" onclick="switchView('partner')">Партнёр</button>
+    <button id="toggleMfo" class="toggle-btn" onclick="switchView('mfo')">МФО</button>
+  </div>
 </div>
 
 <div class="controls">
   <select id="partner">
     <option value="mts">МТС Банк</option>
     <option value="loko">ЛОКО</option>
+  </select>
+  <select id="mfoSelect" style="display:none">
+    <option value="all">Все МФО</option>
   </select>
   <input type="date" id="start">
   <span class="dash">—</span>

@@ -178,6 +178,133 @@ def api_day():
     return jsonify(mfo=rows)
 
 
+@app.route("/api/mfo-summary")
+def api_mfo_summary():
+    start = safe_date(request.args.get("start"))
+    end = safe_date(request.args.get("end"))
+    if not start or not end:
+        return jsonify(error="start/end required"), 400
+    end_excl = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    rows = mcp.query(f"""
+        WITH transitions AS (
+          SELECT fo.Name as mfo, COUNT(*) as transitions
+          FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+          WHERE ff.SelectedDate IS NOT NULL
+            AND a.ProductTypeId=5 AND a.ChannelTypeId=2
+            AND a.Created>='{start}' AND a.Created<'{end_excl}'
+          GROUP BY fo.Name
+        ),
+        ankety AS (
+          SELECT fo.Name as mfo, COUNT(DISTINCT s.ApplicationId) as ankety
+          FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId
+            JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.SelectedDate IS NOT NULL
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+          WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6'
+            AND a.ProductTypeId=5 AND a.ChannelTypeId=2
+            AND a.Created>='{start}' AND a.Created<'{end_excl}'
+          GROUP BY fo.Name
+        ),
+        rejections AS (
+          SELECT fo.Name as mfo, COUNT(*) as rejected
+          FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+          WHERE ff.OfferStatusTypeId=3
+            AND a.ProductTypeId=5 AND a.ChannelTypeId=2
+            AND a.Created>='{start}' AND a.Created<'{end_excl}'
+          GROUP BY fo.Name
+        ),
+        issued AS (
+          SELECT fo.Name as mfo, COUNT(*) as issued, SUM(kv) as kv FROM (
+            SELECT DISTINCT a.ApplicationId, a.IncomingComissionAmount as kv, ff.FinOrgId
+            FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId
+              JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id
+              JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6
+            WHERE stt.[Index]=305
+              AND a.ProductTypeId=5 AND a.ChannelTypeId=2
+              AND a.Created>='{start}' AND a.Created<'{end_excl}'
+          ) sub JOIN FinOrgs fo ON sub.FinOrgId=fo.FinOrgId GROUP BY fo.Name
+        )
+        SELECT t.mfo, t.transitions, ISNULL(an.ankety,0) as ankety,
+          ISNULL(r.rejected,0) as rejected, ISNULL(i.issued,0) as issued, ISNULL(i.kv,0) as kv
+        FROM transitions t
+          LEFT JOIN ankety an ON t.mfo=an.mfo
+          LEFT JOIN rejections r ON t.mfo=r.mfo
+          LEFT JOIN issued i ON t.mfo=i.mfo
+        ORDER BY t.transitions DESC""", "MFO summary")
+
+    for r in rows:
+        r["kv"] = flt(r.get("kv", 0))
+    return jsonify(mfo=rows)
+
+
+@app.route("/api/mfo-dates")
+def api_mfo_dates():
+    mfo_name = request.args.get("mfo", "")
+    mfo_safe = mfo_name.replace("'", "''")
+    start = safe_date(request.args.get("start"))
+    end = safe_date(request.args.get("end"))
+    if not mfo_name or not start or not end:
+        return jsonify(error="mfo/start/end required"), 400
+    end_excl = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    rows = mcp.query(f"""
+        WITH transitions AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as transitions
+          FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+          WHERE ff.SelectedDate IS NOT NULL AND fo.Name=N'{mfo_safe}'
+            AND a.ProductTypeId=5 AND a.ChannelTypeId=2
+            AND a.Created>='{start}' AND a.Created<'{end_excl}'
+          GROUP BY CAST(a.Created AS DATE)
+        ),
+        ankety AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(DISTINCT s.ApplicationId) as ankety
+          FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId
+            JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.SelectedDate IS NOT NULL
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+          WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6'
+            AND fo.Name=N'{mfo_safe}'
+            AND a.ProductTypeId=5 AND a.ChannelTypeId=2
+            AND a.Created>='{start}' AND a.Created<'{end_excl}'
+          GROUP BY CAST(a.Created AS DATE)
+        ),
+        rejections AS (
+          SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as rejected
+          FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
+            JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+          WHERE ff.OfferStatusTypeId=3 AND fo.Name=N'{mfo_safe}'
+            AND a.ProductTypeId=5 AND a.ChannelTypeId=2
+            AND a.Created>='{start}' AND a.Created<'{end_excl}'
+          GROUP BY CAST(a.Created AS DATE)
+        ),
+        issued AS (
+          SELECT dt, COUNT(*) as issued, SUM(kv) as kv FROM (
+            SELECT DISTINCT a.ApplicationId, CAST(a.Created AS DATE) as dt, a.IncomingComissionAmount as kv
+            FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId
+              JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id
+              JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6
+              JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
+            WHERE stt.[Index]=305 AND fo.Name=N'{mfo_safe}'
+              AND a.ProductTypeId=5 AND a.ChannelTypeId=2
+              AND a.Created>='{start}' AND a.Created<'{end_excl}'
+          ) sub GROUP BY dt
+        )
+        SELECT t.dt as date, t.transitions, ISNULL(an.ankety,0) as ankety,
+          ISNULL(r.rejected,0) as rejected, ISNULL(i.issued,0) as issued, ISNULL(i.kv,0) as kv
+        FROM transitions t
+          LEFT JOIN ankety an ON t.dt=an.dt
+          LEFT JOIN rejections r ON t.dt=r.dt
+          LEFT JOIN issued i ON t.dt=i.dt
+        ORDER BY t.dt""", f"MFO dates {mfo_name}")
+
+    for r in rows:
+        r["kv"] = flt(r.get("kv", 0))
+        r["date"] = str(r["date"])[:10]
+    return jsonify(days=rows)
+
+
 if __name__ == "__main__":
     print("MFO Dashboard: http://localhost:5000")
     app.run(debug=True, port=5000, host="0.0.0.0")
