@@ -1,6 +1,8 @@
 """MCP JSON-RPC клиент для insapp-db"""
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import requests as http_requests
 from config import MCP_URL, MCP_KEY
 
@@ -9,10 +11,13 @@ class MCPClient:
     def __init__(self):
         self.session_id = None
         self.req_id = 0
+        self._lock = threading.Lock()
+        self._http = http_requests.Session()
 
     def _next_id(self):
-        self.req_id += 1
-        return self.req_id
+        with self._lock:
+            self.req_id += 1
+            return self.req_id
 
     def _headers(self):
         h = {
@@ -28,7 +33,7 @@ class MCPClient:
         if self.session_id:
             return
         try:
-            resp = http_requests.post(MCP_URL, json={
+            resp = self._http.post(MCP_URL, json={
                 "jsonrpc": "2.0", "method": "initialize",
                 "params": {
                     "protocolVersion": "2024-11-05",
@@ -38,17 +43,23 @@ class MCPClient:
                 "id": self._next_id(),
             }, headers=self._headers(), timeout=10)
             self.session_id = resp.headers.get("mcp-session-id") or resp.headers.get("Mcp-Session")
-            http_requests.post(MCP_URL, json={
+            self._http.post(MCP_URL, json={
                 "jsonrpc": "2.0", "method": "notifications/initialized", "params": {},
             }, headers=self._headers(), timeout=5)
             print(f"MCP session: {self.session_id}")
         except Exception as e:
             print(f"MCP init error: {e}")
 
+    def query_parallel(self, queries):
+        """Run multiple queries in parallel. queries = [(sql, desc), ...]. Returns list of row-lists."""
+        self._ensure_session()
+        with ThreadPoolExecutor(max_workers=len(queries)) as pool:
+            return list(pool.map(lambda q: self.query(q[0], q[1]), queries))
+
     def query(self, sql, desc="dashboard"):
         self._ensure_session()
         try:
-            resp = http_requests.post(MCP_URL, json={
+            resp = self._http.post(MCP_URL, json={
                 "jsonrpc": "2.0", "method": "tools/call",
                 "params": {"name": "query", "arguments": {
                     "database": "InsappCoreProd",

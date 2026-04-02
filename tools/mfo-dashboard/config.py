@@ -3,7 +3,7 @@
 import os
 import re
 
-# MCP — задайте свой ключ через переменную окружения
+# MCP
 MCP_URL = os.getenv("INSAPP_DB_URL", "https://db-mcp.insapp.pro/mcp")
 MCP_KEY = os.getenv("INSAPP_DB_API_KEY", "YOUR_API_KEY_HERE")
 
