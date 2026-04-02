@@ -22,7 +22,7 @@ function mkTh(t, cls, sortIdx) {
     }
     th.addEventListener('click', function(e) {
       e.stopPropagation();
-      sortCol = sortCol === sortIdx ? null : sortIdx;
+      sortCol = sortCol === sortIdx ? getDefaultSortCol() : sortIdx;
       rerenderTable();
     });
   }
@@ -40,7 +40,7 @@ let mfoExpanded = {};
 let mfoDayCache = {};
 let partnerMfoExpanded = {};
 let partnerMfoDayCache = {};
-let sortCol = null;
+let sortCol = 7;
 let mfoSingleDays = null;
 let mfoSingleName = null;
 
@@ -54,9 +54,23 @@ function sortDesc(arr, valFn) {
   return arr.slice().sort(function(a, b) { return (valFn(b) || 0) - (valFn(a) || 0); });
 }
 
+function getDefaultSortCol() {
+  if (viewMode === 'partner') return 7;
+  var sel = document.getElementById('mfoSelect');
+  return sel.value === 'all' ? 6 : 5;
+}
+
+function appendCells(tr, cells) {
+  for (var i = 0; i < cells.length; i++) {
+    if (i === sortCol) cells[i].classList.add('col-issued');
+    tr.appendChild(cells[i]);
+  }
+}
+
 function partnerMfoVal(r, col, split) {
   var ap = r.ankety - r.rejected;
   switch(col) {
+    case 2: return r.opens;
     case 3: return r.transitions;
     case 4: return r.ankety;
     case 5: return r.rejected;
@@ -122,7 +136,7 @@ function rerenderTable() {
 
 function switchView(mode) {
   viewMode = mode;
-  sortCol = null;
+  sortCol = getDefaultSortCol();
   document.getElementById('togglePartner').classList.toggle('active', mode === 'partner');
   document.getElementById('toggleMfo').classList.toggle('active', mode === 'mfo');
   document.getElementById('partner').style.display = mode === 'partner' ? '' : 'none';
@@ -134,7 +148,7 @@ function switchView(mode) {
 
 function switchPartnerSub(mode) {
   partnerSubSort = mode;
-  sortCol = null;
+  sortCol = getDefaultSortCol();
   document.getElementById('subByDates').classList.toggle('active', mode === 'dates');
   document.getElementById('subByMfo').classList.toggle('active', mode === 'mfo');
   if (mode === 'mfo' && !PARTNER_MFO) {
@@ -196,7 +210,7 @@ async function loadPartnerData() {
   const end = document.getElementById('end').value;
   expanded = {};
   dayCache = {};
-  sortCol = null;
+  sortCol = 7;
   PARTNER_MFO = null;
   partnerMfoExpanded = {};
   partnerMfoDayCache = {};
@@ -238,7 +252,7 @@ function renderPartnerTable() {
   const hr = document.createElement('tr');
   ['', '\u0414\u0430\u0442\u0430', '\u041e\u0442\u043a\u0440.', '\u041f\u0435\u0440\u0435\u0445.', '\u0410\u043d\u043a\u0435\u0442\u044b', '\u041e\u0442\u043a\u0430\u0437\u044b', '\u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e', '\u0412\u044b\u0434\u0430\u0447\u0438', '\u0412\u0445.\u041a\u0412',
    '\u041f\u0430\u0440\u0442\u043d. ' + split + '%', 'Insapp ' + (100 - split) + '%', 'EPC', 'EPL'].forEach((t, i) => {
-    hr.appendChild(mkTh(t, i === 7 ? 'col-issued' : null, i >= 2 ? i : null));
+    hr.appendChild(mkTh(t, i === sortCol ? 'col-issued' : null, i >= 2 ? i : null));
   });
   thead.appendChild(hr);
   tbl.appendChild(thead);
@@ -256,13 +270,13 @@ function renderPartnerTable() {
     const tr = document.createElement('tr');
     tr.className = 'day-row';
     tr.addEventListener('click', () => toggleDay(r.date));
-    [mkCell(isExp ? '\u2212' : '+'), mkCell(dd), mkCell(fmt(r.opens)), mkCell(fmt(r.transitions)),
+    appendCells(tr, [mkCell(isExp ? '\u2212' : '+'), mkCell(dd), mkCell(fmt(r.opens)), mkCell(fmt(r.transitions)),
      mkCell(fmt(r.ankety)), mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
-     mkCell(fmt(r.issued), pct(r.issued, approved), 'col-issued'),
+     mkCell(fmt(r.issued), pct(r.issued, approved)),
      mkCell(fmt(r.kv)), mkCell(fmt(Math.round(pk))), mkCell(fmt(Math.round(ik))),
      mkCell(epc != null ? fmt(epc) : '\u2014'), mkCell(epl != null ? fmt(epl) : '\u2014')
-    ].forEach(td => tr.appendChild(td));
+    ]);
     tbody.appendChild(tr);
 
     if (isExp) {
@@ -285,12 +299,12 @@ function renderPartnerTable() {
   var totEpl = totA ? Math.round(totK / totA) : null;
   var totalTr = document.createElement('tr');
   totalTr.className = 'total-row';
-  [mkCell(''), mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(fmt(totO)), mkCell(fmt(totT)), mkCell(fmt(totA)),
+  appendCells(totalTr, [mkCell(''), mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(fmt(totO)), mkCell(fmt(totT)), mkCell(fmt(totA)),
    mkCell(fmt(totR), pct(totR, totA)), mkCell(fmt(totAp), pct(totAp, totA)),
-   mkCell(fmt(totI), pct(totI, totAp), 'col-issued'),
+   mkCell(fmt(totI), pct(totI, totAp)),
    mkCell(fmt(totK)), mkCell(fmt(Math.round(totK * split / 100))), mkCell(fmt(Math.round(totK * (100 - split) / 100))),
    mkCell(totEpc != null ? fmt(totEpc) : '\u2014'), mkCell(totEpl != null ? fmt(totEpl) : '\u2014')
-  ].forEach(td => totalTr.appendChild(td));
+  ]);
   tbody.appendChild(totalTr);
 
   tbl.appendChild(tbody);
@@ -307,13 +321,13 @@ function appendPartnerMfoRows(tbody, mfo, split) {
     var approved = r.ankety - r.rejected;
     var tr = document.createElement('tr');
     tr.className = 'mfo-row';
-    [mkCell(''), mkCell(r.mfo), mkCell(''), mkCell(fmt(r.transitions)), mkCell(fmt(r.ankety)),
+    appendCells(tr, [mkCell(''), mkCell(r.mfo), mkCell(''), mkCell(fmt(r.transitions)), mkCell(fmt(r.ankety)),
      mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
-     mkCell(fmt(r.issued), pct(r.issued, approved), 'col-issued'),
+     mkCell(fmt(r.issued), pct(r.issued, approved)),
      mkCell(fmt(r.kv)), mkCell(fmt(Math.round(pk))), mkCell(fmt(Math.round(ik))),
      mkCell(epc != null ? fmt(epc) : '\u2014'), mkCell(epl != null ? fmt(epl) : '\u2014')
-    ].forEach(td => tr.appendChild(td));
+    ]);
     tbody.appendChild(tr);
   }
 }
@@ -348,7 +362,7 @@ function renderPartnerMfoTable() {
   var hr = document.createElement('tr');
   ['', '\u041c\u0424\u041e', '', '\u041f\u0435\u0440\u0435\u0445.', '\u0410\u043d\u043a\u0435\u0442\u044b', '\u041e\u0442\u043a\u0430\u0437\u044b', '\u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e', '\u0412\u044b\u0434\u0430\u0447\u0438', '\u0412\u0445.\u041a\u0412',
    '\u041f\u0430\u0440\u0442\u043d. ' + split + '%', 'Insapp ' + (100 - split) + '%', 'EPC', 'EPL'].forEach(function(t, i) {
-    hr.appendChild(mkTh(t, i === 7 ? 'col-issued' : null, i >= 3 ? i : null));
+    hr.appendChild(mkTh(t, i === sortCol ? 'col-issued' : null, i >= 3 ? i : null));
   });
   thead.appendChild(hr);
   tbl.appendChild(thead);
@@ -365,14 +379,14 @@ function renderPartnerMfoTable() {
     var tr = document.createElement('tr');
     tr.className = 'day-row';
     (function(name) { tr.addEventListener('click', function() { togglePartnerMfo(name); }); })(r.mfo);
-    [mkCell(isExp ? '\u2212' : '+'), mkCell(r.mfo), mkCell(''),
+    appendCells(tr, [mkCell(isExp ? '\u2212' : '+'), mkCell(r.mfo), mkCell(''),
      mkCell(fmt(r.transitions)),
      mkCell(fmt(r.ankety)), mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
-     mkCell(fmt(r.issued), pct(r.issued, approved), 'col-issued'),
+     mkCell(fmt(r.issued), pct(r.issued, approved)),
      mkCell(fmt(r.kv)), mkCell(fmt(Math.round(pk))), mkCell(fmt(Math.round(ik))),
      mkCell(epc != null ? fmt(epc) : '\u2014'), mkCell(epl != null ? fmt(epl) : '\u2014')
-    ].forEach(function(td) { tr.appendChild(td); });
+    ]);
     tbody.appendChild(tr);
 
     if (isExp) {
@@ -394,12 +408,12 @@ function renderPartnerMfoTable() {
   var totEpl = totA ? Math.round(totK / totA) : null;
   var totalTr = document.createElement('tr');
   totalTr.className = 'total-row';
-  [mkCell(''), mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(''), mkCell(fmt(totT)), mkCell(fmt(totA)),
+  appendCells(totalTr, [mkCell(''), mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(''), mkCell(fmt(totT)), mkCell(fmt(totA)),
    mkCell(fmt(totR), pct(totR, totA)), mkCell(fmt(totAp), pct(totAp, totA)),
-   mkCell(fmt(totI), pct(totI, totAp), 'col-issued'),
+   mkCell(fmt(totI), pct(totI, totAp)),
    mkCell(fmt(totK)), mkCell(fmt(Math.round(totK * split / 100))), mkCell(fmt(Math.round(totK * (100 - split) / 100))),
    mkCell(totEpc != null ? fmt(totEpc) : '\u2014'), mkCell(totEpl != null ? fmt(totEpl) : '\u2014')
-  ].forEach(function(td) { totalTr.appendChild(td); });
+  ]);
   tbody.appendChild(totalTr);
 
   tbl.appendChild(tbody);
@@ -418,14 +432,14 @@ function appendPartnerMfoDates(tbody, days, split) {
     var dd = parts[1] + '.' + parts[0];
     var tr = document.createElement('tr');
     tr.className = 'mfo-row';
-    [mkCell(''), mkCell(dd), mkCell(''),
+    appendCells(tr, [mkCell(''), mkCell(dd), mkCell(''),
      mkCell(fmt(r.transitions)),
      mkCell(fmt(r.ankety)), mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
-     mkCell(fmt(r.issued), pct(r.issued, approved), 'col-issued'),
+     mkCell(fmt(r.issued), pct(r.issued, approved)),
      mkCell(fmt(r.kv)), mkCell(fmt(Math.round(pk))), mkCell(fmt(Math.round(ik))),
      mkCell(epc != null ? fmt(epc) : '\u2014'), mkCell(epl != null ? fmt(epl) : '\u2014')
-    ].forEach(function(td) { tr.appendChild(td); });
+    ]);
     tbody.appendChild(tr);
   }
 }
@@ -456,7 +470,6 @@ async function loadMfoData() {
   var end = document.getElementById('end').value;
   mfoExpanded = {};
   mfoDayCache = {};
-  sortCol = null;
   mfoSingleDays = null;
   mfoSingleName = null;
   var resp = await fetch('/api/mfo-summary?start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
@@ -479,6 +492,7 @@ async function loadMfoData() {
   var found = false;
   for (var j = 0; j < sel.options.length; j++) { if (sel.options[j].value === prev) { found = true; break; } }
   sel.value = found ? prev : 'all';
+  sortCol = getDefaultSortCol();
 
   if (sel.value === 'all') {
     renderMfoCards(MFO_DATA.mfo);
@@ -491,7 +505,7 @@ async function loadMfoData() {
 async function loadMfoSingle(mfoName) {
   var start = document.getElementById('start').value;
   var end = document.getElementById('end').value;
-  sortCol = null;
+  sortCol = 5;
   var resp = await fetch('/api/mfo-dates?mfo=' + encodeURIComponent(mfoName) +
     '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
   var data = await resp.json();
@@ -524,7 +538,7 @@ function renderMfoAllTable() {
   var thead = document.createElement('thead');
   var hr = document.createElement('tr');
   ['', '\u041c\u0424\u041e', '\u041f\u0435\u0440\u0435\u0445.', '\u0410\u043d\u043a\u0435\u0442\u044b', '\u041e\u0442\u043a\u0430\u0437\u044b', '\u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e', '\u0412\u044b\u0434\u0430\u0447\u0438', '\u0412\u0445.\u041a\u0412', 'EPC', 'EPL'].forEach(function(t, i) {
-    hr.appendChild(mkTh(t, i === 6 ? 'col-issued' : null, i >= 2 ? i : null));
+    hr.appendChild(mkTh(t, i === sortCol ? 'col-issued' : null, i >= 2 ? i : null));
   });
   thead.appendChild(hr);
   tbl.appendChild(thead);
@@ -540,13 +554,13 @@ function renderMfoAllTable() {
     var tr = document.createElement('tr');
     tr.className = 'day-row';
     (function(name) { tr.addEventListener('click', function() { toggleMfoExpand(name); }); })(r.mfo);
-    [mkCell(isExp ? '\u2212' : '+'), mkCell(r.mfo), mkCell(fmt(r.transitions)),
+    appendCells(tr, [mkCell(isExp ? '\u2212' : '+'), mkCell(r.mfo), mkCell(fmt(r.transitions)),
      mkCell(fmt(r.ankety)), mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
-     mkCell(fmt(r.issued), pct(r.issued, approved), 'col-issued'),
+     mkCell(fmt(r.issued), pct(r.issued, approved)),
      mkCell(fmt(r.kv)),
      mkCell(epc != null ? fmt(epc) : '\u2014'), mkCell(epl != null ? fmt(epl) : '\u2014')
-    ].forEach(function(td) { tr.appendChild(td); });
+    ]);
     tbody.appendChild(tr);
 
     if (isExp) {
@@ -565,11 +579,11 @@ function renderMfoAllTable() {
   var totEpl = totA ? Math.round(totK / totA) : null;
   var totalTr = document.createElement('tr');
   totalTr.className = 'total-row';
-  [mkCell(''), mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(fmt(totT)), mkCell(fmt(totA)),
+  appendCells(totalTr, [mkCell(''), mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(fmt(totT)), mkCell(fmt(totA)),
    mkCell(fmt(totR), pct(totR, totA)), mkCell(fmt(totAp), pct(totAp, totA)),
-   mkCell(fmt(totI), pct(totI, totAp), 'col-issued'), mkCell(fmt(totK)),
+   mkCell(fmt(totI), pct(totI, totAp)), mkCell(fmt(totK)),
    mkCell(totEpc != null ? fmt(totEpc) : '\u2014'), mkCell(totEpl != null ? fmt(totEpl) : '\u2014')
-  ].forEach(function(td) { totalTr.appendChild(td); });
+  ]);
   tbody.appendChild(totalTr);
 
   tbl.appendChild(tbody);
@@ -587,13 +601,13 @@ function appendMfoDayRows(tbody, days) {
     var dd = parts[1] + '.' + parts[0];
     var tr = document.createElement('tr');
     tr.className = 'mfo-row';
-    [mkCell(''), mkCell(dd), mkCell(fmt(r.transitions)), mkCell(fmt(r.ankety)),
+    appendCells(tr, [mkCell(''), mkCell(dd), mkCell(fmt(r.transitions)), mkCell(fmt(r.ankety)),
      mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
-     mkCell(fmt(r.issued), pct(r.issued, approved), 'col-issued'),
+     mkCell(fmt(r.issued), pct(r.issued, approved)),
      mkCell(fmt(r.kv)),
      mkCell(epc != null ? fmt(epc) : '\u2014'), mkCell(epl != null ? fmt(epl) : '\u2014')
-    ].forEach(function(td) { tr.appendChild(td); });
+    ]);
     tbody.appendChild(tr);
   }
 }
@@ -625,7 +639,7 @@ function renderMfoSingleTable(days, mfoName) {
   var thead = document.createElement('thead');
   var hr = document.createElement('tr');
   ['\u0414\u0430\u0442\u0430', '\u041f\u0435\u0440\u0435\u0445.', '\u0410\u043d\u043a\u0435\u0442\u044b', '\u041e\u0442\u043a\u0430\u0437\u044b', '\u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e', '\u0412\u044b\u0434\u0430\u0447\u0438', '\u0412\u0445.\u041a\u0412', 'EPC', 'EPL'].forEach(function(t, i) {
-    hr.appendChild(mkTh(t, i === 5 ? 'col-issued' : null, i >= 1 ? i : null));
+    hr.appendChild(mkTh(t, i === sortCol ? 'col-issued' : null, i >= 1 ? i : null));
   });
   thead.appendChild(hr);
   tbl.appendChild(thead);
@@ -640,13 +654,13 @@ function renderMfoSingleTable(days, mfoName) {
     var dd = parts[1] + '.' + parts[0];
     var tr = document.createElement('tr');
     tr.className = 'day-row';
-    [mkCell(dd), mkCell(fmt(r.transitions)), mkCell(fmt(r.ankety)),
+    appendCells(tr, [mkCell(dd), mkCell(fmt(r.transitions)), mkCell(fmt(r.ankety)),
      mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
-     mkCell(fmt(r.issued), pct(r.issued, approved), 'col-issued'),
+     mkCell(fmt(r.issued), pct(r.issued, approved)),
      mkCell(fmt(r.kv)),
      mkCell(epc != null ? fmt(epc) : '\u2014'), mkCell(epl != null ? fmt(epl) : '\u2014')
-    ].forEach(function(td) { tr.appendChild(td); });
+    ]);
     tbody.appendChild(tr);
   }
 
@@ -660,11 +674,11 @@ function renderMfoSingleTable(days, mfoName) {
   var totEpl = totA ? Math.round(totK / totA) : null;
   var totalTr = document.createElement('tr');
   totalTr.className = 'total-row';
-  [mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(fmt(totT)), mkCell(fmt(totA)),
+  appendCells(totalTr, [mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(fmt(totT)), mkCell(fmt(totA)),
    mkCell(fmt(totR), pct(totR, totA)), mkCell(fmt(totAp), pct(totAp, totA)),
-   mkCell(fmt(totI), pct(totI, totAp), 'col-issued'), mkCell(fmt(totK)),
+   mkCell(fmt(totI), pct(totI, totAp)), mkCell(fmt(totK)),
    mkCell(totEpc != null ? fmt(totEpc) : '\u2014'), mkCell(totEpl != null ? fmt(totEpl) : '\u2014')
-  ].forEach(function(td) { totalTr.appendChild(td); });
+  ]);
   tbody.appendChild(totalTr);
 
   tbl.appendChild(tbody);
@@ -693,9 +707,10 @@ function loadingRow(cols) {
 
 document.getElementById('mfoSelect').addEventListener('change', function() {
   if (!MFO_DATA) return;
-  sortCol = null;
+  sortCol = getDefaultSortCol();
   var sel = document.getElementById('mfoSelect');
   if (sel.value === 'all') {
+    sortCol = 6;
     renderMfoCards(MFO_DATA.mfo);
     renderMfoAllTable();
   } else {
