@@ -58,27 +58,33 @@ class MCPClient:
 
     def query(self, sql, desc="dashboard"):
         self._ensure_session()
-        try:
-            resp = self._http.post(MCP_URL, json={
-                "jsonrpc": "2.0", "method": "tools/call",
-                "params": {"name": "query", "arguments": {
-                    "database": "InsappCoreProd",
-                    "sql": sql,
-                    "user_prompt": "dashboard",
-                    "query_description": desc,
-                }},
-                "id": self._next_id(),
-            }, headers=self._headers(), timeout=60)
+        for attempt in range(2):
+            try:
+                resp = self._http.post(MCP_URL, json={
+                    "jsonrpc": "2.0", "method": "tools/call",
+                    "params": {"name": "query", "arguments": {
+                        "database": "InsappCoreProd",
+                        "sql": sql,
+                        "user_prompt": "dashboard",
+                        "query_description": desc,
+                    }},
+                    "id": self._next_id(),
+                }, headers=self._headers(), timeout=120)
 
-            ct = resp.headers.get("Content-Type", "")
-            if "text/event-stream" in ct:
-                for line in resp.text.split("\n"):
-                    if line.startswith("data: "):
-                        return self._parse(json.loads(line[6:]))
-            else:
-                return self._parse(resp.json())
-        except Exception as e:
-            print(f"MCP query error: {e}")
+                ct = resp.headers.get("Content-Type", "")
+                if "text/event-stream" in ct:
+                    for line in resp.text.split("\n"):
+                        if line.startswith("data: "):
+                            return self._parse(json.loads(line[6:]))
+                else:
+                    return self._parse(resp.json())
+            except http_requests.exceptions.Timeout:
+                print(f"MCP timeout (attempt {attempt+1}/2): {desc}")
+                if attempt == 0:
+                    continue
+            except Exception as e:
+                print(f"MCP query error: {e}")
+                break
         return []
 
     def _parse(self, data):
