@@ -455,6 +455,32 @@ def api_partner_mfo_dates():
     return jsonify(days=result)
 
 
+## ── Showcase order (позиция МФО в витрине) ─────────
+
+@app.route("/api/showcase-order")
+def api_showcase_order():
+    """Текущий порядок витрины из prod API (не из FinProducts — там неактуально)."""
+    try:
+        base = _showcase_base("prod")
+        r = req.post(f"{base}/Internal/GetReferralProducts",
+                     headers={"Authorization": SHOWCASE_AUTH_INTERNAL},
+                     json={}, timeout=10)
+        items = r.json().get("value", [])
+        order = {}
+        sorted_items = sorted(items, key=lambda x: x.get("order", 999))
+        active_pos = 0
+        for p in sorted_items:
+            name = p.get("finOrgName", "")
+            off = bool(p.get("isDisabled", False))
+            if not off:
+                active_pos += 1
+            if name and name not in order:
+                order[name] = {"pos": active_pos if not off else 0, "off": off}
+        return jsonify(order=order)
+    except Exception as e:
+        return jsonify(order={}, error=str(e))
+
+
 ## ── Showcase (витрина) ──────────────────────────────
 
 def _showcase_base(env):
