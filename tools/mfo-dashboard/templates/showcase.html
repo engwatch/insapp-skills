@@ -39,6 +39,23 @@
   flex-wrap: wrap;
 }
 
+.showcase-body {
+  display: flex;
+  gap: 20px;
+  padding: 0 28px 48px;
+  align-items: flex-start;
+}
+
+.sidebar-actions {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 140px;
+  flex-shrink: 0;
+}
+
 .filter-tabs {
   display: flex;
   background: var(--bg);
@@ -64,10 +81,7 @@
 .filter-tab.active .cnt { color: var(--v); opacity: .6; }
 
 .showcase-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-  align-items: center;
+  display: none;
 }
 .btn-save { background: #16A34A; color: #fff; }
 .btn-save:hover { background: #15803D; }
@@ -87,7 +101,8 @@
 
 /* ── Product list ── */
 .product-list {
-  padding: 0 28px 48px;
+  flex: 1;
+  min-width: 0;
   max-width: 800px;
 }
 
@@ -271,10 +286,6 @@
 </div>
 
 <div class="showcase-controls">
-  <div class="env-toggle">
-    <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
-    <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
-  </div>
   <div class="filter-tabs" id="filterTabs">
     <button class="filter-tab active" data-filter="all">Все <span class="cnt" id="cnt-all"></span></button>
     <button class="filter-tab" data-filter="enabled">Включены <span class="cnt" id="cnt-enabled"></span></button>
@@ -282,8 +293,15 @@
     <button class="filter-tab" data-filter="Mfo">МФО <span class="cnt" id="cnt-mfo"></span></button>
     <button class="filter-tab" data-filter="Finuslugi">Финуслуги <span class="cnt" id="cnt-fin"></span></button>
   </div>
+  <div class="env-toggle">
+    <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
+    <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
+  </div>
+</div>
 
-  <div class="showcase-actions">
+<div class="showcase-body">
+  <div class="product-list" id="productList"></div>
+  <div class="sidebar-actions">
     <span class="changes-badge" id="changesBadge" style="display:none;">
       <span id="changesCount">0</span> изм.
     </span>
@@ -292,8 +310,6 @@
     <span class="save-status" id="saveStatus"></span>
   </div>
 </div>
-
-<div class="product-list" id="productList"></div>
 
 <script>
 let ENV = 'prod';
