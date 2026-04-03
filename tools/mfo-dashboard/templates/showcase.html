@@ -48,14 +48,7 @@
   gap: 10px;
   align-items: center;
   padding: 20px 28px;
-  flex-wrap: wrap;
-}
-
-.showcase-body {
-  display: flex;
-  gap: 20px;
-  padding: 0 28px 48px;
-  align-items: flex-start;
+  max-width: 988px;
 }
 
 .sidebar-actions {
@@ -315,15 +308,15 @@
     <button class="filter-tab" data-filter="Mfo">МФО <span class="cnt" id="cnt-mfo"></span></button>
     <button class="filter-tab" data-filter="Finuslugi">Финуслуги <span class="cnt" id="cnt-fin"></span></button>
   </div>
+  <div class="env-toggle" style="margin-left: auto;">
+    <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
+    <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
+  </div>
 </div>
 
 <div class="showcase-body">
   <div class="product-list" id="productList"></div>
   <div class="sidebar-actions">
-    <div class="env-toggle">
-      <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
-      <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
-    </div>
     <span class="changes-badge" id="changesBadge" style="display:none;">
       <span id="changesCount">0</span> изм.
     </span>
