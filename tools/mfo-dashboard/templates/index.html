@@ -28,20 +28,26 @@
 </div>
 
 <div class="controls">
-  <select id="partner">
-    <option value="mts">МТС Банк</option>
-    <option value="loko">ЛОКО</option>
-    <option value="insapp_mfo">МФО Инсап</option>
-    <option value="emtech">ЭМТЕХНОЛОДЖИС</option>
-    <option value="futbolista">ФУТБОЛИСТА</option>
-    <option value="str_partners">Страховые партнёры</option>
-    <option value="gpb">ГПБ</option>
-    <option value="tbank">ТБАНК</option>
-    <option value="beskontakt">БЕСКОНТАКТ</option>
-    <option value="dolinsk">ДОЛИНСК</option>
-    <option value="technoprods">ТЕХНОПРОДС</option>
-    <option value="33monety">33 МОНЕТЫ</option>
-  </select>
+  <div class="multi-select" id="partnerSelect">
+    <button type="button" class="multi-select-btn" onclick="togglePartnerDropdown()">
+      <span id="partnerLabel">МТС Банк</span>
+      <span class="multi-select-arrow">▾</span>
+    </button>
+    <div class="multi-select-dropdown" id="partnerDropdown">
+      <label><input type="checkbox" value="mts" checked onchange="updatePartnerLabel()"> МТС Банк</label>
+      <label><input type="checkbox" value="loko" onchange="updatePartnerLabel()"> ЛОКО</label>
+      <label><input type="checkbox" value="insapp_mfo" onchange="updatePartnerLabel()"> МФО Инсап</label>
+      <label><input type="checkbox" value="emtech" onchange="updatePartnerLabel()"> ЭМТЕХНОЛОДЖИС</label>
+      <label><input type="checkbox" value="futbolista" onchange="updatePartnerLabel()"> ФУТБОЛИСТА</label>
+      <label><input type="checkbox" value="str_partners" onchange="updatePartnerLabel()"> Страховые партнёры</label>
+      <label><input type="checkbox" value="gpb" onchange="updatePartnerLabel()"> ГПБ</label>
+      <label><input type="checkbox" value="tbank" onchange="updatePartnerLabel()"> ТБАНК</label>
+      <label><input type="checkbox" value="beskontakt" onchange="updatePartnerLabel()"> БЕСКОНТАКТ</label>
+      <label><input type="checkbox" value="dolinsk" onchange="updatePartnerLabel()"> ДОЛИНСК</label>
+      <label><input type="checkbox" value="technoprods" onchange="updatePartnerLabel()"> ТЕХНОПРОДС</label>
+      <label><input type="checkbox" value="33monety" onchange="updatePartnerLabel()"> 33 МОНЕТЫ</label>
+    </div>
+  </div>
   <select id="mfoSelect" style="display:none">
     <option value="all">Все МФО</option>
   </select>
@@ -62,9 +68,26 @@
 </div>
 
 <div id="partnerSubToggle" style="display:none; padding: 0 28px 12px;">
-  <div class="view-toggle">
-    <button id="subByDates" class="toggle-btn active" onclick="switchPartnerSub('dates')">По датам</button>
-    <button id="subByMfo" class="toggle-btn" onclick="switchPartnerSub('mfo')">По МФО</button>
+  <div style="display:flex; align-items:center; gap:12px; justify-content:flex-end;">
+    <div class="view-toggle">
+      <button id="subByDates" class="toggle-btn active" onclick="switchPartnerSub('dates')">По датам</button>
+      <button id="subByMfo" class="toggle-btn" onclick="switchPartnerSub('mfo')">По МФО</button>
+    </div>
+    <label class="feature-check">
+      <input type="checkbox" id="featureToggle" onchange="toggleFeatureMode()">
+      <span>По фичам</span>
+    </label>
+    <select id="featureSelect" style="display:none;" onchange="loadFeatureData()">
+      <option value="">Обновление витрины...</option>
+    </select>
+    <label class="feature-check">
+      <input type="checkbox" id="hourToggle" onchange="toggleHourMode()">
+      <span>По часам</span>
+    </label>
+    <select id="hourSelect" style="display:none;" onchange="loadHourData()">
+      <option value="">Час...</option>
+    </select>
+    <button class="refresh-btn" onclick="refreshData()" title="Обновить данные">↻</button>
   </div>
 </div>
 

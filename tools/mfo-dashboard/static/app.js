@@ -29,6 +29,35 @@ function mkTh(t, cls, sortIdx) {
   return th;
 }
 
+/* Multi-select partner helpers */
+
+function getSelectedPartners() {
+  var boxes = document.querySelectorAll('#partnerDropdown input[type=checkbox]:checked');
+  var vals = [];
+  for (var i = 0; i < boxes.length; i++) vals.push(boxes[i].value);
+  return vals.join(',') || 'mts';
+}
+
+function updatePartnerLabel() {
+  var boxes = document.querySelectorAll('#partnerDropdown input[type=checkbox]:checked');
+  var names = [];
+  for (var i = 0; i < boxes.length; i++) {
+    names.push(boxes[i].parentElement.textContent.trim());
+  }
+  document.getElementById('partnerLabel').textContent = names.length ? names.join(' + ') : 'Выберите';
+}
+
+function togglePartnerDropdown() {
+  document.getElementById('partnerDropdown').classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+  var sel = document.getElementById('partnerSelect');
+  if (sel && !sel.contains(e.target)) {
+    document.getElementById('partnerDropdown').classList.remove('open');
+  }
+});
+
 let viewMode = 'partner';
 let partnerSubSort = 'dates';
 let DATA = null;
@@ -36,6 +65,7 @@ let MFO_DATA = null;
 let PARTNER_MFO = null;
 let expanded = {};
 let dayCache = {};
+let activeFromTime = null;
 let mfoExpanded = {};
 let mfoDayCache = {};
 let partnerMfoExpanded = {};
@@ -139,7 +169,7 @@ function switchView(mode) {
   sortCol = getDefaultSortCol();
   document.getElementById('togglePartner').classList.toggle('active', mode === 'partner');
   document.getElementById('toggleMfo').classList.toggle('active', mode === 'mfo');
-  document.getElementById('partner').style.display = mode === 'partner' ? '' : 'none';
+  document.getElementById('partnerSelect').style.display = mode === 'partner' ? '' : 'none';
   document.getElementById('mfoSelect').style.display = mode === 'mfo' ? '' : 'none';
   document.getElementById('partnerSubToggle').style.display = mode === 'partner' && DATA ? '' : 'none';
   document.getElementById('cards').style.display = 'none';
@@ -158,8 +188,194 @@ function switchPartnerSub(mode) {
   }
 }
 
+/* Refresh button */
+
+async function refreshData() {
+  if (activeFromTime) {
+    var partner = getSelectedPartners();
+    var btn = document.getElementById('loadBtn');
+    var status = document.getElementById('status');
+    btn.disabled = true;
+    status.textContent = '';
+    var spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    status.appendChild(spinner);
+    status.append(' Обновление...');
+    try {
+      expanded = {};
+      dayCache = {};
+      PARTNER_MFO = null;
+      partnerMfoExpanded = {};
+      partnerMfoDayCache = {};
+      var resp = await fetch('/api/summary?partner=' + encodeURIComponent(partner) +
+        '&from_time=' + encodeURIComponent(activeFromTime));
+      DATA = await resp.json();
+      if (DATA.error) { status.textContent = DATA.error; return; }
+      renderPartnerCards();
+      if (partnerSubSort === 'mfo') {
+        await loadPartnerMfoData();
+      } else {
+        renderPartnerTable();
+      }
+      status.textContent = '';
+    } catch (e) {
+      status.textContent = 'Ошибка: ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  } else {
+    loadData();
+  }
+}
+
+/* Feature (showcase events) mode */
+
+let SHOWCASE_EVENTS = null;
+let featureMode = false;
+
+/* Hour mode */
+
+let HOUR_ENTRIES = null;
+let hourMode = false;
+
+function toggleHourMode() {
+  hourMode = document.getElementById('hourToggle').checked;
+  document.getElementById('hourSelect').style.display = hourMode ? '' : 'none';
+  if (hourMode) {
+    document.getElementById('featureToggle').checked = false;
+    featureMode = false;
+    document.getElementById('featureSelect').style.display = 'none';
+    loadHourEntries();
+  } else {
+    activeFromTime = null;
+  }
+}
+
+async function loadHourEntries() {
+  var sel = document.getElementById('hourSelect');
+  if (HOUR_ENTRIES) return;
+  var status = document.getElementById('status');
+  status.textContent = '';
+  var spinner = document.createElement('span');
+  spinner.className = 'spinner';
+  status.appendChild(spinner);
+  status.append(' Загрузка...');
+  try {
+    var now = new Date();
+    var entries = [];
+    for (var h = 0; h < 48; h++) {
+      var t = new Date(now.getTime() - h * 3600000);
+      var iso = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0') +
+        'T' + String(t.getHours()).padStart(2,'0') + ':00:00+03:00';
+      var label = String(t.getDate()).padStart(2,'0') + '.' + String(t.getMonth()+1).padStart(2,'0') + ' ' +
+        String(t.getHours()).padStart(2,'0') + ':00';
+      entries.push({time: iso, label: label});
+    }
+    HOUR_ENTRIES = entries;
+    while (sel.options.length > 1) sel.remove(1);
+    for (var i = 0; i < entries.length; i++) {
+      var opt = document.createElement('option');
+      opt.value = entries[i].time;
+      opt.textContent = entries[i].label;
+      sel.appendChild(opt);
+    }
+    status.textContent = '';
+  } catch (e) {
+    status.textContent = 'Ошибка: ' + e.message;
+  }
+}
+
+async function loadHourData() {
+  var sel = document.getElementById('hourSelect');
+  var fromTime = sel.value;
+  if (!fromTime) return;
+  activeFromTime = fromTime;
+  refreshData();
+}
+
+function toggleFeatureMode() {
+  featureMode = document.getElementById('featureToggle').checked;
+  document.getElementById('featureSelect').style.display = featureMode ? '' : 'none';
+  if (featureMode) {
+    document.getElementById('hourToggle').checked = false;
+    hourMode = false;
+    document.getElementById('hourSelect').style.display = 'none';
+    loadShowcaseEvents();
+  } else {
+    activeFromTime = null;
+  }
+}
+
+async function loadShowcaseEvents() {
+  var sel = document.getElementById('featureSelect');
+  if (SHOWCASE_EVENTS) return;
+  var status = document.getElementById('status');
+  status.textContent = '';
+  var spinner = document.createElement('span');
+  spinner.className = 'spinner';
+  status.appendChild(spinner);
+  status.append(' Загрузка событий...');
+  try {
+    var resp = await fetch('/api/showcase-events');
+    var data = await resp.json();
+    SHOWCASE_EVENTS = data.events || [];
+    while (sel.options.length > 1) sel.remove(1);
+    for (var i = 0; i < SHOWCASE_EVENTS.length; i++) {
+      var opt = document.createElement('option');
+      opt.value = SHOWCASE_EVENTS[i].time;
+      var parts = SHOWCASE_EVENTS[i].label.split(' ');
+      var dateParts = parts[0].split('-');
+      opt.textContent = dateParts[2] + '.' + dateParts[1] + ' ' + parts[1];
+      sel.appendChild(opt);
+    }
+    status.textContent = '';
+  } catch (e) {
+    status.textContent = 'Ошибка: ' + e.message;
+  }
+}
+
+async function loadFeatureData() {
+  var sel = document.getElementById('featureSelect');
+  var fromTime = sel.value;
+  if (!fromTime) return;
+  activeFromTime = fromTime;
+  var partner = getSelectedPartners();
+  var btn = document.getElementById('loadBtn');
+  var status = document.getElementById('status');
+  btn.disabled = true;
+  status.textContent = '';
+  var spinner = document.createElement('span');
+  spinner.className = 'spinner';
+  status.appendChild(spinner);
+  status.append(' Загрузка...');
+  try {
+    expanded = {};
+    dayCache = {};
+    sortCol = 7;
+    PARTNER_MFO = null;
+    partnerMfoExpanded = {};
+    partnerMfoDayCache = {};
+    var resp = await fetch('/api/summary?partner=' + encodeURIComponent(partner) +
+      '&from_time=' + encodeURIComponent(fromTime));
+    DATA = await resp.json();
+    if (DATA.error) { status.textContent = DATA.error; return; }
+    renderPartnerCards();
+    document.getElementById('partnerSubToggle').style.display = '';
+    if (partnerSubSort === 'mfo') {
+      await loadPartnerMfoData();
+    } else {
+      renderPartnerTable();
+    }
+    status.textContent = '';
+  } catch (e) {
+    status.textContent = 'Ошибка: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function loadPartnerMfoData() {
-  var partner = document.getElementById('partner').value;
+  var partner = getSelectedPartners();
   var start = document.getElementById('start').value;
   var end = document.getElementById('end').value;
   var status = document.getElementById('status');
@@ -169,8 +385,13 @@ async function loadPartnerMfoData() {
   status.appendChild(spinner);
   status.append(' \u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...');
   try {
-    var resp = await fetch('/api/partner-mfo?partner=' + encodeURIComponent(partner) +
-      '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
+    var url = '/api/partner-mfo?partner=' + encodeURIComponent(partner);
+    if (activeFromTime) {
+      url += '&from_time=' + encodeURIComponent(activeFromTime);
+    } else {
+      url += '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end);
+    }
+    var resp = await fetch(url);
     PARTNER_MFO = await resp.json();
     if (PARTNER_MFO.error) { status.textContent = PARTNER_MFO.error; return; }
     status.textContent = '';
@@ -205,13 +426,15 @@ async function loadData() {
 /* Partner mode */
 
 async function loadPartnerData() {
-  const partner = document.getElementById('partner').value;
+  const partner = getSelectedPartners();
   const start = document.getElementById('start').value;
   const end = document.getElementById('end').value;
+  activeFromTime = null;
   expanded = {};
   dayCache = {};
   sortCol = 7;
   PARTNER_MFO = null;
+  SHOWCASE_EVENTS = null;
   partnerMfoExpanded = {};
   partnerMfoDayCache = {};
   const resp = await fetch('/api/summary?partner=' + encodeURIComponent(partner) +
@@ -337,9 +560,11 @@ async function toggleDay(date) {
   expanded[date] = true;
   renderPartnerTable();
   if (!dayCache[date]) {
-    var partner = document.getElementById('partner').value;
+    var partner = getSelectedPartners();
+    var url = '/api/day?partner=' + encodeURIComponent(partner) + '&date=' + encodeURIComponent(date);
+    if (activeFromTime) url += '&from_time=' + encodeURIComponent(activeFromTime);
     try {
-      var resp = await fetch('/api/day?partner=' + encodeURIComponent(partner) + '&date=' + encodeURIComponent(date));
+      var resp = await fetch(url);
       var data = await resp.json();
       dayCache[date] = data.mfo || [];
     } catch (e) { dayCache[date] = []; }
@@ -449,13 +674,18 @@ async function togglePartnerMfo(mfoName) {
   partnerMfoExpanded[mfoName] = true;
   renderPartnerMfoTable();
   if (!partnerMfoDayCache[mfoName]) {
-    var partner = document.getElementById('partner').value;
+    var partner = getSelectedPartners();
     var start = document.getElementById('start').value;
     var end = document.getElementById('end').value;
     try {
-      var resp = await fetch('/api/partner-mfo-dates?partner=' + encodeURIComponent(partner) +
-        '&mfo=' + encodeURIComponent(mfoName) +
-        '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
+      var url = '/api/partner-mfo-dates?partner=' + encodeURIComponent(partner) +
+        '&mfo=' + encodeURIComponent(mfoName);
+      if (activeFromTime) {
+        url += '&from_time=' + encodeURIComponent(activeFromTime);
+      } else {
+        url += '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end);
+      }
+      var resp = await fetch(url);
       var data = await resp.json();
       partnerMfoDayCache[mfoName] = data.days || [];
     } catch (e) { partnerMfoDayCache[mfoName] = []; }

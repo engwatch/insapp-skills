@@ -25,28 +25,64 @@ def flt(v):
     except:
         return 0.0
 
+def parse_partners(pk_str):
+    """Парсит comma-separated ключи партнёров. Возвращает dict или None."""
+    keys = [k.strip() for k in pk_str.split(",") if k.strip()]
+    partners = [PARTNERS[k] for k in keys if k in PARTNERS]
+    if not partners:
+        return None
+    pids = [p["id"] for p in partners]
+    if len(pids) == 1:
+        pid_cond = f"ak.PartnerId='{pids[0]}'"
+    else:
+        pid_cond = "ak.PartnerId IN (" + ",".join(f"'{p}'" for p in pids) + ")"
+    avg_split = round(sum(p["split"] for p in partners) / len(partners))
+    name = " + ".join(p["name"] for p in partners)
+    return {"name": name, "split": avg_split, "filter": pid_cond}
+
+def build_pf(pp, start, end):
+    """Строит полный фильтр партнёра + дат с wide range."""
+    start_w = (datetime.strptime(start, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    end_w = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
+    return f"{pp['filter']} AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start_w}' AND a.Created<'{end_w}' AND CAST(a.Created AS DATE)>='{start}' AND CAST(a.Created AS DATE)<='{end}'"
+
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
 
+@app.route("/api/showcase-events")
+def api_showcase_events():
+    """Возвращает таймстампы обновлений витрины за последние 48 часов."""
+    rows = mcp.query("""
+        SELECT p.Date, LEFT(p.RequestBody, 500) as body
+        FROM PublicApiLogs p
+        WHERE p.Url LIKE '%UpdateOrderReferralProducts%'
+          AND p.Date >= DATEADD(hour, -48, GETDATE())
+        ORDER BY p.Date DESC""", "showcase events", db="InsappLogProd")
+    events = [{"time": str(r["Date"]), "label": str(r["Date"])[:19].replace("T", " ")} for r in rows]
+    return jsonify(events=events)
+
+
 @app.route("/api/summary")
 def api_summary():
     pk = request.args.get("partner", "mts")
+    from_time = request.args.get("from_time", "")
     start = safe_date(request.args.get("start"))
     end = safe_date(request.args.get("end"))
-    if not start or not end:
-        return jsonify(error="start/end required"), 400
-    p = PARTNERS.get(pk)
-    if not p:
+
+    pp = parse_partners(pk)
+    if not pp:
         return jsonify(error="unknown partner"), 400
 
-    pid = p["id"]
-    # Wide range for index seek + CAST for accurate date filtering (Created is datetimeoffset +03:00)
-    start_w = (datetime.strptime(start, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
-    end_w = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
-    pf = f"ak.PartnerId='{pid}' AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start_w}' AND a.Created<'{end_w}' AND CAST(a.Created AS DATE)>='{start}' AND CAST(a.Created AS DATE)<='{end}'"
+    if from_time:
+        ft_safe = from_time.replace("'", "")
+        pf = f"{pp['filter']} AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{ft_safe}'"
+    elif start and end:
+        pf = build_pf(pp, start, end)
+    else:
+        return jsonify(error="start/end or from_time required"), 400
 
     rows = mcp.query(f"""
         WITH opens AS (
@@ -107,25 +143,29 @@ def api_summary():
                "issued": r["issued"], "kv": flt(r["kv"])} for r in rows]
 
     ankety_total = rows[0]["ankety_total"] if rows else 0
-    return jsonify(partner=p, days=result, ankety_total=ankety_total)
+    return jsonify(partner=pp, days=result, ankety_total=ankety_total)
 
 
 @app.route("/api/day")
 def api_day():
     pk = request.args.get("partner", "mts")
     date = safe_date(request.args.get("date"))
-    p = PARTNERS.get(pk)
-    if not p or not date:
+    from_time = request.args.get("from_time", "")
+    pp = parse_partners(pk)
+    if not pp or not date:
         return jsonify(error="partner/date required"), 400
-    pid = p["id"]
+    if from_time:
+        ft_safe = from_time.replace("'", "")
+        pf = f"{pp['filter']} AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND CAST(a.Created AS DATE)='{date}' AND a.Created>='{ft_safe}'"
+    else:
+        pf = f"{pp['filter']} AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND CAST(a.Created AS DATE)='{date}'"
 
     rows = mcp.query(f"""
         WITH transitions AS (
           SELECT fo.Name as mfo, COUNT(*) as transitions
           FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
             JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-          WHERE ff.SelectedDate IS NOT NULL AND ak.PartnerId='{pid}'
-            AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND CAST(a.Created AS DATE)='{date}'
+          WHERE ff.SelectedDate IS NOT NULL AND {pf}
           GROUP BY fo.Name
         ),
         ankety AS (
@@ -134,17 +174,14 @@ def api_day():
             JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
             JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.SelectedDate IS NOT NULL
             JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-          WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6'
-            AND ak.PartnerId='{pid}' AND a.ProductTypeId=5 AND a.ChannelTypeId=2
-            AND CAST(a.Created AS DATE)='{date}'
+          WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6' AND {pf}
           GROUP BY fo.Name
         ),
         rejections AS (
           SELECT fo.Name as mfo, COUNT(*) as rejected
           FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId
             JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId JOIN FinOrgs fo ON ff.FinOrgId=fo.FinOrgId
-          WHERE ff.OfferStatusTypeId=3 AND ak.PartnerId='{pid}'
-            AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND CAST(a.Created AS DATE)='{date}'
+          WHERE ff.OfferStatusTypeId=3 AND {pf}
           GROUP BY fo.Name
         ),
         issued AS (
@@ -154,8 +191,7 @@ def api_day():
               JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
               JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id
               JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6
-            WHERE stt.[Index]=305 AND ak.PartnerId='{pid}'
-              AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND CAST(a.Created AS DATE)='{date}'
+            WHERE stt.[Index]=305 AND {pf}
           ) sub JOIN FinOrgs fo ON sub.FinOrgId=fo.FinOrgId GROUP BY fo.Name
         )
         SELECT t.mfo, t.transitions, ISNULL(an.ankety,0) as ankety,
@@ -289,15 +325,19 @@ def api_mfo_dates():
 @app.route("/api/partner-mfo")
 def api_partner_mfo():
     pk = request.args.get("partner", "mts")
+    from_time = request.args.get("from_time", "")
     start = safe_date(request.args.get("start"))
     end = safe_date(request.args.get("end"))
-    p = PARTNERS.get(pk)
-    if not p or not start or not end:
-        return jsonify(error="partner/start/end required"), 400
-    pid = p["id"]
-    start_w = (datetime.strptime(start, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
-    end_w = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
-    pf = f"ak.PartnerId='{pid}' AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start_w}' AND a.Created<'{end_w}' AND CAST(a.Created AS DATE)>='{start}' AND CAST(a.Created AS DATE)<='{end}'"
+    pp = parse_partners(pk)
+    if not pp:
+        return jsonify(error="unknown partner"), 400
+    if from_time:
+        ft_safe = from_time.replace("'", "")
+        pf = f"{pp['filter']} AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{ft_safe}'"
+    elif start and end:
+        pf = build_pf(pp, start, end)
+    else:
+        return jsonify(error="start/end or from_time required"), 400
 
     rows = mcp.query(f"""
         WITH transitions AS (
@@ -350,15 +390,19 @@ def api_partner_mfo_dates():
     pk = request.args.get("partner", "mts")
     mfo_name = request.args.get("mfo", "")
     mfo_safe = mfo_name.replace("'", "''")
+    from_time = request.args.get("from_time", "")
     start = safe_date(request.args.get("start"))
     end = safe_date(request.args.get("end"))
-    p = PARTNERS.get(pk)
-    if not p or not mfo_name or not start or not end:
-        return jsonify(error="partner/mfo/start/end required"), 400
-    pid = p["id"]
-    start_w = (datetime.strptime(start, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
-    end_w = (datetime.strptime(end, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
-    pf = f"ak.PartnerId='{pid}' AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{start_w}' AND a.Created<'{end_w}' AND CAST(a.Created AS DATE)>='{start}' AND CAST(a.Created AS DATE)<='{end}'"
+    pp = parse_partners(pk)
+    if not pp or not mfo_name:
+        return jsonify(error="partner/mfo required"), 400
+    if from_time:
+        ft_safe = from_time.replace("'", "")
+        pf = f"{pp['filter']} AND a.ProductTypeId=5 AND a.ChannelTypeId=2 AND a.Created>='{ft_safe}'"
+    elif start and end:
+        pf = build_pf(pp, start, end)
+    else:
+        return jsonify(error="start/end or from_time required"), 400
     mf = f"fo.Name=N'{mfo_safe}'"
 
     rows = mcp.query(f"""
