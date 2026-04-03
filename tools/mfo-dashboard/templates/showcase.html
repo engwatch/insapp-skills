@@ -45,15 +45,18 @@
 
 .showcase-controls {
   display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 20px 28px;
+  max-width: 960px;
+}
+.controls-left {
+  flex: 1;
+  display: flex;
   gap: 10px;
   align-items: center;
-  padding: 20px 28px;
-  max-width: 800px;
 }
-
-.sidebar-actions {
-  position: sticky;
-  top: 20px;
+.controls-right {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -90,21 +93,8 @@
 }
 
 .showcase-body {
-  display: flex;
-  gap: 20px;
-  padding: 0 28px 48px;
-  align-items: flex-start;
+  padding: 0 188px 48px 28px;
   max-width: 960px;
-}
-
-.sidebar-actions {
-  position: sticky;
-  top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 140px;
-  flex-shrink: 0;
 }
 .btn-save { background: #16A34A; color: #fff; }
 .btn-save:hover { background: #15803D; }
@@ -301,22 +291,20 @@
 </div>
 
 <div class="showcase-controls">
-  <div class="filter-tabs" id="filterTabs">
-    <button class="filter-tab active" data-filter="all">Все <span class="cnt" id="cnt-all"></span></button>
-    <button class="filter-tab" data-filter="enabled">Включены <span class="cnt" id="cnt-enabled"></span></button>
-    <button class="filter-tab" data-filter="disabled">Выключены <span class="cnt" id="cnt-disabled"></span></button>
-    <button class="filter-tab" data-filter="Mfo">МФО <span class="cnt" id="cnt-mfo"></span></button>
-    <button class="filter-tab" data-filter="Finuslugi">Финуслуги <span class="cnt" id="cnt-fin"></span></button>
+  <div class="controls-left">
+    <div class="filter-tabs" id="filterTabs">
+      <button class="filter-tab active" data-filter="all">Все <span class="cnt" id="cnt-all"></span></button>
+      <button class="filter-tab" data-filter="enabled">Включены <span class="cnt" id="cnt-enabled"></span></button>
+      <button class="filter-tab" data-filter="disabled">Выключены <span class="cnt" id="cnt-disabled"></span></button>
+      <button class="filter-tab" data-filter="Mfo">МФО <span class="cnt" id="cnt-mfo"></span></button>
+      <button class="filter-tab" data-filter="Finuslugi">Финуслуги <span class="cnt" id="cnt-fin"></span></button>
+    </div>
+    <div class="env-toggle" style="margin-left: auto;">
+      <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
+      <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
+    </div>
   </div>
-  <div class="env-toggle" style="margin-left: auto;">
-    <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
-    <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
-  </div>
-</div>
-
-<div class="showcase-body">
-  <div class="product-list" id="productList"></div>
-  <div class="sidebar-actions">
+  <div class="controls-right">
     <span class="changes-badge" id="changesBadge" style="display:none;">
       <span id="changesCount">0</span> изм.
     </span>
@@ -324,6 +312,10 @@
     <button class="btn btn-cache" onclick="invalidateCache()">Сбросить кеш</button>
     <span class="save-status" id="saveStatus"></span>
   </div>
+</div>
+
+<div class="showcase-body">
+  <div class="product-list" id="productList"></div>
 </div>
 
 <script>
