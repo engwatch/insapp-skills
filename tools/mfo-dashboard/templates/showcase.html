@@ -268,8 +268,8 @@
   <h1>Настройка витрины</h1>
   <a href="/" class="back-link" style="margin-left: 8px;">&larr; Отчёты</a>
   <div class="env-toggle" style="margin-left: auto;">
-    <button class="env-btn active" data-env="test" onclick="switchEnv('test')">Тест</button>
-    <button class="env-btn" data-env="prod" onclick="switchEnv('prod')">Прод</button>
+    <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
+    <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
   </div>
 </div>
 
@@ -295,7 +295,7 @@
 <div class="product-list" id="productList"></div>
 
 <script>
-let ENV = 'test';
+let ENV = 'prod';
 let products = [];
 let originalState = {};
 let currentFilter = 'all';
