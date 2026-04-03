@@ -10,14 +10,13 @@
 /* ── Showcase page ── */
 .env-toggle {
   display: flex;
-  border: 1.5px solid var(--rim2);
+  background: var(--bg);
   border-radius: var(--r1);
   padding: 2px;
-  gap: 0;
-  background: #fff;
+  gap: 2px;
 }
 .env-btn {
-  padding: 5px 16px;
+  padding: 5px 14px;
   border: none;
   border-radius: 8px;
   font-size: 12px;
@@ -32,40 +31,12 @@
 .env-btn.active.prod-active { background: #DC2626; }
 .env-btn:not(.active):hover { color: var(--t1); }
 
-.header-back {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--t2);
-  text-decoration: none;
-  padding: 5px 12px;
-  border-radius: 8px;
-  transition: all .15s;
-}
-.header-back:hover { background: var(--bg); color: var(--v); }
-
 .showcase-controls {
   display: flex;
   gap: 10px;
   align-items: center;
   padding: 20px 28px;
   flex-wrap: wrap;
-}
-
-.showcase-body {
-  display: flex;
-  gap: 20px;
-  padding: 0 28px 48px;
-  align-items: flex-start;
-}
-
-.sidebar-actions {
-  position: sticky;
-  top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 140px;
-  flex-shrink: 0;
 }
 
 .filter-tabs {
@@ -93,13 +64,16 @@
 .filter-tab.active .cnt { color: var(--v); opacity: .6; }
 
 .showcase-actions {
-  display: none;
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 .btn-save { background: #16A34A; color: #fff; }
 .btn-save:hover { background: #15803D; }
 .btn-save:disabled { background: #86EFAC; color: #fff; }
-.btn-cache { background: #fff; color: var(--t3); border: 1px solid var(--rim2); }
-.btn-cache:hover { background: var(--bg); color: var(--t2); }
+.btn-cache { background: #F59E0B; color: #fff; }
+.btn-cache:hover { background: #D97706; }
 
 .save-status {
   font-size: 12px;
@@ -113,8 +87,7 @@
 
 /* ── Product list ── */
 .product-list {
-  flex: 1;
-  min-width: 0;
+  padding: 0 28px 48px;
   max-width: 800px;
 }
 
@@ -221,7 +194,7 @@
   flex-shrink: 0;
 }
 .type-mfo { background: #DBEAFE; color: #1D4ED8; }
-.type-finuslugi { background: #DC2626; color: #fff; }
+.type-finuslugi { background: #F3E8FF; color: #7C3AED; }
 
 /* ── Toggle switch ── */
 .toggle-switch {
@@ -268,7 +241,15 @@
   padding: 3px 8px;
 }
 
-/* ── Back link (removed, using .header-back now) ── */
+/* ── Back link ── */
+.back-link {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t3);
+  text-decoration: none;
+  transition: color .15s;
+}
+.back-link:hover { color: var(--v); }
 </style>
 </head>
 <body>
@@ -284,10 +265,12 @@
     <path d="M49.6193 10.4953H54.2934V34.9842H49.6193V10.4953Z" fill="#1E1F21"/>
   </svg>
   <div class="sep"></div>
-  <a href="/" class="header-back">&larr; Отчёты</a>
-  <div class="sep"></div>
   <h1>Настройка витрины</h1>
-  <div style="margin-left: auto;"></div>
+  <a href="/" class="back-link" style="margin-left: 8px;">&larr; Отчёты</a>
+  <div class="env-toggle" style="margin-left: auto;">
+    <button class="env-btn active" data-env="test" onclick="switchEnv('test')">Тест</button>
+    <button class="env-btn" data-env="prod" onclick="switchEnv('prod')">Прод</button>
+  </div>
 </div>
 
 <div class="showcase-controls">
@@ -298,26 +281,21 @@
     <button class="filter-tab" data-filter="Mfo">МФО <span class="cnt" id="cnt-mfo"></span></button>
     <button class="filter-tab" data-filter="Finuslugi">Финуслуги <span class="cnt" id="cnt-fin"></span></button>
   </div>
-  <div class="env-toggle" style="margin-left: auto;">
-    <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
-    <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
-  </div>
-</div>
 
-<div class="showcase-body">
-  <div class="product-list" id="productList"></div>
-  <div class="sidebar-actions">
+  <div class="showcase-actions">
     <span class="changes-badge" id="changesBadge" style="display:none;">
       <span id="changesCount">0</span> изм.
     </span>
     <button class="btn btn-save" id="saveBtn" onclick="saveChanges()" disabled>Сохранить</button>
-    <button class="btn btn-cache" onclick="invalidateCache()">Сбросить кеш</button>
+    <button class="btn btn-cache" onclick="invalidateCache(this)">Сбросить кеш</button>
     <span class="save-status" id="saveStatus"></span>
   </div>
 </div>
 
+<div class="product-list" id="productList"></div>
+
 <script>
-let ENV = 'prod';
+let ENV = 'test';
 let products = [];
 let originalState = {};
 let currentFilter = 'all';
@@ -620,8 +598,9 @@ async function saveChanges() {
 }
 
 // ── Invalidate cache ──
-async function invalidateCache() {
+async function invalidateCache(btn) {
   var status = document.getElementById('saveStatus');
+  btn.disabled = true;
   status.textContent = 'Сброс кеша...';
   status.className = 'save-status';
 
@@ -639,6 +618,8 @@ async function invalidateCache() {
   } catch (e) {
     status.textContent = e.message;
     status.className = 'save-status err';
+  } finally {
+    btn.disabled = false;
   }
   setTimeout(function() { status.textContent = ''; }, 4000);
 }
