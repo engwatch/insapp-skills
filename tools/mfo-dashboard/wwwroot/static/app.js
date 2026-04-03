@@ -58,6 +58,29 @@ document.addEventListener('click', function(e) {
   }
 });
 
+let SHOWCASE_ORDER = null;
+
+async function loadShowcaseOrder() {
+  try {
+    var resp = await fetch('/api/showcase-order');
+    var data = await resp.json();
+    SHOWCASE_ORDER = data.order || {};
+  } catch(e) { SHOWCASE_ORDER = {}; }
+}
+
+function mkMfoCell(name) {
+  var td = document.createElement('td');
+  td.textContent = name;
+  if (SHOWCASE_ORDER && SHOWCASE_ORDER[name]) {
+    var info = SHOWCASE_ORDER[name];
+    var badge = document.createElement('span');
+    badge.className = 'mfo-badge ' + (info.off ? 'off' : 'active');
+    badge.textContent = info.off ? 'off' : info.pos;
+    td.appendChild(badge);
+  }
+  return td;
+}
+
 let viewMode = 'partner';
 let partnerSubSort = 'dates';
 let DATA = null;
@@ -191,6 +214,7 @@ function switchPartnerSub(mode) {
 /* Refresh button */
 
 async function refreshData() {
+  loadShowcaseOrder();
   if (activeFromTime) {
     var partner = getSelectedPartners();
     var btn = document.getElementById('loadBtn');
@@ -404,6 +428,7 @@ async function loadPartnerMfoData() {
 /* Load dispatcher */
 
 async function loadData() {
+  loadShowcaseOrder();
   const btn = document.getElementById('loadBtn');
   const status = document.getElementById('status');
   btn.disabled = true;
@@ -544,7 +569,7 @@ function appendPartnerMfoRows(tbody, mfo, split) {
     var approved = r.ankety - r.rejected;
     var tr = document.createElement('tr');
     tr.className = 'mfo-row';
-    appendCells(tr, [mkCell(''), mkCell(r.mfo), mkCell(''), mkCell(fmt(r.transitions)), mkCell(fmt(r.ankety)),
+    appendCells(tr, [mkCell(''), mkMfoCell(r.mfo), mkCell(''), mkCell(fmt(r.transitions)), mkCell(fmt(r.ankety)),
      mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
      mkCell(fmt(r.issued), pct(r.issued, approved)),
@@ -604,7 +629,7 @@ function renderPartnerMfoTable() {
     var tr = document.createElement('tr');
     tr.className = 'day-row';
     (function(name) { tr.addEventListener('click', function() { togglePartnerMfo(name); }); })(r.mfo);
-    appendCells(tr, [mkCell(isExp ? '\u2212' : '+'), mkCell(r.mfo), mkCell(''),
+    appendCells(tr, [mkCell(isExp ? '\u2212' : '+'), mkMfoCell(r.mfo), mkCell(''),
      mkCell(fmt(r.transitions)),
      mkCell(fmt(r.ankety)), mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
@@ -784,7 +809,7 @@ function renderMfoAllTable() {
     var tr = document.createElement('tr');
     tr.className = 'day-row';
     (function(name) { tr.addEventListener('click', function() { toggleMfoExpand(name); }); })(r.mfo);
-    appendCells(tr, [mkCell(isExp ? '\u2212' : '+'), mkCell(r.mfo), mkCell(fmt(r.transitions)),
+    appendCells(tr, [mkCell(isExp ? '\u2212' : '+'), mkMfoCell(r.mfo), mkCell(fmt(r.transitions)),
      mkCell(fmt(r.ankety)), mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
      mkCell(fmt(approved), pct(approved, r.ankety)),
      mkCell(fmt(r.issued), pct(r.issued, approved)),
@@ -951,3 +976,5 @@ document.getElementById('mfoSelect').addEventListener('change', function() {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') loadData();
 });
+
+loadShowcaseOrder();

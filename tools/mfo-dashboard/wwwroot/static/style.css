@@ -390,6 +390,21 @@ table.mode-mfo-single tbody td:first-child { text-align: left; width: auto; padd
 table.mode-mfo-single tbody tr.day-row { cursor: default; }
 table.mode-mfo-single tbody tr.total-row td:first-child { color: var(--t1); }
 
+/* ── MFO showcase badge ── */
+.mfo-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+  line-height: 16px;
+  letter-spacing: 0;
+}
+.mfo-badge.active { background: #DEF7EC; color: #059669; }
+.mfo-badge.off { background: #FEE2E2; color: #DC2626; }
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
   .cards { grid-template-columns: repeat(3, 1fr); }
