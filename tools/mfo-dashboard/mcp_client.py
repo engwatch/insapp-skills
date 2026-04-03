@@ -61,14 +61,14 @@ class MCPClient:
         print("MCP session reset")
         self.session_id = None
 
-    def query(self, sql, desc="dashboard"):
+    def query(self, sql, desc="dashboard", db="InsappCoreProd"):
         self._ensure_session()
         for attempt in range(3):
             try:
                 resp = self._http.post(MCP_URL, json={
                     "jsonrpc": "2.0", "method": "tools/call",
                     "params": {"name": "query", "arguments": {
-                        "database": "InsappCoreProd",
+                        "database": db,
                         "sql": sql,
                         "user_prompt": "dashboard",
                         "query_description": desc,
