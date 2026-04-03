@@ -194,7 +194,7 @@
   flex-shrink: 0;
 }
 .type-mfo { background: #DBEAFE; color: #1D4ED8; }
-.type-finuslugi { background: #F3E8FF; color: #7C3AED; }
+.type-finuslugi { background: #DC2626; color: #fff; }
 
 /* ── Toggle switch ── */
 .toggle-switch {
@@ -267,13 +267,14 @@
   <div class="sep"></div>
   <h1>Настройка витрины</h1>
   <a href="/" class="back-link" style="margin-left: 8px;">&larr; Отчёты</a>
-  <div class="env-toggle" style="margin-left: auto;">
-    <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
-    <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
-  </div>
+  <div style="margin-left: auto;"></div>
 </div>
 
 <div class="showcase-controls">
+  <div class="env-toggle">
+    <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
+    <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
+  </div>
   <div class="filter-tabs" id="filterTabs">
     <button class="filter-tab active" data-filter="all">Все <span class="cnt" id="cnt-all"></span></button>
     <button class="filter-tab" data-filter="enabled">Включены <span class="cnt" id="cnt-enabled"></span></button>
