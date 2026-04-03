@@ -83,13 +83,11 @@
 .btn-save:hover { background: #15803D; }
 .btn-save:disabled { background: #86EFAC; color: #fff; }
 .btn-cache {
-  background: #fff; color: var(--t3); border: 1px solid var(--rim2);
-  width: 34px; height: 34px; padding: 0;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 8px; flex-shrink: 0;
+  background: transparent; color: var(--t4); border: none;
+  padding: 5px 8px; font-size: 11px; font-weight: 500;
+  font-family: inherit; cursor: pointer; flex-shrink: 0;
 }
-.btn-cache:hover { background: var(--bg); color: var(--t2); }
-.btn-cache svg { width: 16px; height: 16px; }
+.btn-cache:hover { color: var(--t2); }
 
 .save-status {
   font-size: 12px;
@@ -295,7 +293,7 @@
       <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
     </div>
     <button class="btn btn-save" id="saveBtn" onclick="saveChanges()" disabled>Сохранить</button>
-    <button class="btn btn-cache" onclick="invalidateCache()" title="Сбросить кеш"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.5 12C6.5 12 6 21 12 21s5.5-9 5.5-9H6.5z"/></svg></button>
+    <button class="btn btn-cache" onclick="invalidateCache()">Сброс кеша</button>
   </div>
 </div>
 
