@@ -45,23 +45,10 @@
 
 .showcase-controls {
   display: flex;
-  gap: 20px;
-  align-items: flex-start;
-  padding: 20px 28px;
-  max-width: 960px;
-}
-.controls-left {
-  flex: 1;
-  display: flex;
   gap: 10px;
   align-items: center;
-}
-.controls-right {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 140px;
-  flex-shrink: 0;
+  padding: 20px 28px;
+  max-width: 960px;
 }
 
 .filter-tabs {
@@ -88,10 +75,6 @@
 .filter-tab .cnt { font-weight: 400; color: var(--t4); margin-left: 2px; }
 .filter-tab.active .cnt { color: var(--v); opacity: .6; }
 
-.showcase-actions {
-  display: none;
-}
-
 .showcase-body {
   padding: 0 28px 48px;
   max-width: 960px;
@@ -99,8 +82,14 @@
 .btn-save { background: #16A34A; color: #fff; }
 .btn-save:hover { background: #15803D; }
 .btn-save:disabled { background: #86EFAC; color: #fff; }
-.btn-cache { background: #fff; color: var(--t3); border: 1px solid var(--rim2); }
+.btn-cache {
+  background: #fff; color: var(--t3); border: 1px solid var(--rim2);
+  width: 34px; height: 34px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; flex-shrink: 0;
+}
 .btn-cache:hover { background: var(--bg); color: var(--t2); }
+.btn-cache svg { width: 16px; height: 16px; }
 
 .save-status {
   font-size: 12px;
@@ -291,26 +280,22 @@
 </div>
 
 <div class="showcase-controls">
-  <div class="controls-left">
-    <div class="filter-tabs" id="filterTabs">
-      <button class="filter-tab active" data-filter="all">Все <span class="cnt" id="cnt-all"></span></button>
-      <button class="filter-tab" data-filter="enabled">Включены <span class="cnt" id="cnt-enabled"></span></button>
-      <button class="filter-tab" data-filter="disabled">Выключены <span class="cnt" id="cnt-disabled"></span></button>
-      <button class="filter-tab" data-filter="Mfo">МФО <span class="cnt" id="cnt-mfo"></span></button>
-      <button class="filter-tab" data-filter="Finuslugi">Финуслуги <span class="cnt" id="cnt-fin"></span></button>
-    </div>
-    <div class="env-toggle" style="margin-left: auto;">
+  <div class="filter-tabs" id="filterTabs">
+    <button class="filter-tab active" data-filter="all">Все <span class="cnt" id="cnt-all"></span></button>
+    <button class="filter-tab" data-filter="enabled">Включены <span class="cnt" id="cnt-enabled"></span></button>
+    <button class="filter-tab" data-filter="disabled">Выключены <span class="cnt" id="cnt-disabled"></span></button>
+    <button class="filter-tab" data-filter="Mfo">МФО <span class="cnt" id="cnt-mfo"></span></button>
+    <button class="filter-tab" data-filter="Finuslugi">Финуслуги <span class="cnt" id="cnt-fin"></span></button>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+    <span class="changes-badge" id="changesBadge" style="display:none;"><span id="changesCount">0</span> изм.</span>
+    <span class="save-status" id="saveStatus"></span>
+    <div class="env-toggle">
       <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
       <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
     </div>
-  </div>
-  <div class="controls-right">
-    <span class="changes-badge" id="changesBadge" style="display:none;">
-      <span id="changesCount">0</span> изм.
-    </span>
     <button class="btn btn-save" id="saveBtn" onclick="saveChanges()" disabled>Сохранить</button>
-    <button class="btn btn-cache" onclick="invalidateCache()">Сбросить кеш</button>
-    <span class="save-status" id="saveStatus"></span>
+    <button class="btn btn-cache" onclick="invalidateCache()" title="Сбросить кеш"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></button>
   </div>
 </div>
 
