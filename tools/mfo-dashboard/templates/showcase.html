@@ -83,11 +83,13 @@
 .btn-save:hover { background: #15803D; }
 .btn-save:disabled { background: #86EFAC; color: #fff; }
 .btn-cache {
-  background: transparent; color: var(--t4); border: none;
-  padding: 5px 8px; font-size: 11px; font-weight: 500;
-  font-family: inherit; cursor: pointer; flex-shrink: 0;
+  background: #fff; color: var(--t3); border: 1px solid var(--rim2);
+  width: 34px; height: 34px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; flex-shrink: 0; cursor: pointer;
 }
-.btn-cache:hover { color: var(--t2); }
+.btn-cache:hover { background: var(--bg); color: var(--t2); }
+.btn-cache svg { width: 16px; height: 16px; }
 
 .save-status {
   font-size: 12px;
@@ -293,7 +295,7 @@
       <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
     </div>
     <button class="btn btn-save" id="saveBtn" onclick="saveChanges()" disabled>Сохранить</button>
-    <button class="btn btn-cache" onclick="invalidateCache()">Сброс кеша</button>
+    <button class="btn btn-cache" onclick="invalidateCache()" title="Сбросить кеш"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.99 0C14.88 0 15.33 1.08 14.7 1.71L13.86 2.55C14.42 3.16 14.89 3.85 15.24 4.61C15.8 5.8 16.06 7.11 15.99 8.42C15.92 9.74 15.53 11.01 14.85 12.14C14.17 13.26 13.22 14.21 12.09 14.88C10.96 15.55 9.68 15.93 8.36 15.99C7.05 16.05 5.74 15.79 4.55 15.22C3.37 14.65 2.34 13.8 1.56 12.74C.78 11.68.27 10.45.08 9.14C0 8.6.38 8.09.93 8.01C1.48 7.93 1.98 8.31 2.06 8.86C2.2 9.83 2.58 10.76 3.17 11.56C3.75 12.35 4.52 12.99 5.41 13.41C6.3 13.84 7.29 14.04 8.27 13.99C9.26 13.95 10.22 13.66 11.07 13.16C11.91 12.65 12.62 11.95 13.13 11.1C13.65 10.26 13.94 9.3 13.99 8.32C14.04 7.33 13.85 6.35 13.43 5.46C13.18 4.91 12.84 4.41 12.44 3.96L11.71 4.7C11.08 5.33 10 4.88 10 3.99V0H13.99ZM1.5 4C2.05 4 2.5 4.45 2.5 5C2.5 5.55 2.05 6 1.5 6C.95 6 .5 5.55.5 5C.5 4.45.95 4 1.5 4ZM3.75 1.25C4.3 1.25 4.75 1.7 4.75 2.25C4.75 2.8 4.3 3.25 3.75 3.25C3.2 3.25 2.75 2.8 2.75 2.25C2.75 1.7 3.2 1.25 3.75 1.25ZM7 0C7.55 0 8 .45 8 1C8 1.55 7.55 2 7 2C6.45 2 6 1.55 6 1C6 .45 6.45 0 7 0Z"/></svg></button>
   </div>
 </div>
 
