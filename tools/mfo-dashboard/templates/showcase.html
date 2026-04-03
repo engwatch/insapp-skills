@@ -10,13 +10,14 @@
 /* ── Showcase page ── */
 .env-toggle {
   display: flex;
-  background: var(--bg);
+  border: 1.5px solid var(--rim2);
   border-radius: var(--r1);
   padding: 2px;
-  gap: 2px;
+  gap: 0;
+  background: #fff;
 }
 .env-btn {
-  padding: 5px 14px;
+  padding: 5px 16px;
   border: none;
   border-radius: 8px;
   font-size: 12px;
@@ -30,6 +31,17 @@
 .env-btn.active { background: var(--v); color: #fff; }
 .env-btn.active.prod-active { background: #DC2626; }
 .env-btn:not(.active):hover { color: var(--t1); }
+
+.header-back {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t2);
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 8px;
+  transition: all .15s;
+}
+.header-back:hover { background: var(--bg); color: var(--v); }
 
 .showcase-controls {
   display: flex;
@@ -86,8 +98,8 @@
 .btn-save { background: #16A34A; color: #fff; }
 .btn-save:hover { background: #15803D; }
 .btn-save:disabled { background: #86EFAC; color: #fff; }
-.btn-cache { background: #F59E0B; color: #fff; }
-.btn-cache:hover { background: #D97706; }
+.btn-cache { background: #fff; color: var(--t3); border: 1px solid var(--rim2); }
+.btn-cache:hover { background: var(--bg); color: var(--t2); }
 
 .save-status {
   font-size: 12px;
@@ -256,15 +268,7 @@
   padding: 3px 8px;
 }
 
-/* ── Back link ── */
-.back-link {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--t3);
-  text-decoration: none;
-  transition: color .15s;
-}
-.back-link:hover { color: var(--v); }
+/* ── Back link (removed, using .header-back now) ── */
 </style>
 </head>
 <body>
@@ -280,8 +284,9 @@
     <path d="M49.6193 10.4953H54.2934V34.9842H49.6193V10.4953Z" fill="#1E1F21"/>
   </svg>
   <div class="sep"></div>
+  <a href="/" class="header-back">&larr; Отчёты</a>
+  <div class="sep"></div>
   <h1>Настройка витрины</h1>
-  <a href="/" class="back-link" style="margin-left: 8px;">&larr; Отчёты</a>
   <div style="margin-left: auto;"></div>
 </div>
 
@@ -293,7 +298,7 @@
     <button class="filter-tab" data-filter="Mfo">МФО <span class="cnt" id="cnt-mfo"></span></button>
     <button class="filter-tab" data-filter="Finuslugi">Финуслуги <span class="cnt" id="cnt-fin"></span></button>
   </div>
-  <div class="env-toggle">
+  <div class="env-toggle" style="margin-left: auto;">
     <button class="env-btn" data-env="test" onclick="switchEnv('test')">Тест</button>
     <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">Прод</button>
   </div>
