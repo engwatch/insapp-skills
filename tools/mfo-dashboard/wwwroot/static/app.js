@@ -462,6 +462,14 @@ async function loadPartnerData() {
   SHOWCASE_EVENTS = null;
   partnerMfoExpanded = {};
   partnerMfoDayCache = {};
+  /* Auto-select sub-view: single day → МФО, multi-day → dates */
+  if (start === end) {
+    partnerSubSort = 'mfo';
+  } else {
+    partnerSubSort = 'dates';
+  }
+  document.getElementById('subByDates').classList.toggle('active', partnerSubSort === 'dates');
+  document.getElementById('subByMfo').classList.toggle('active', partnerSubSort === 'mfo');
   const resp = await fetch('/api/summary?partner=' + encodeURIComponent(partner) +
     '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end));
   DATA = await resp.json();
