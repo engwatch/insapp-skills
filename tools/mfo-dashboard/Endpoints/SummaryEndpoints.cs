@@ -41,7 +41,15 @@ public static class SummaryEndpoints
             return Results.BadRequest(new { error = "start/end or from_time required" });
         }
 
-        var rows = await mcp.QueryAsync($@"
+        var splitDate = start ?? (fromTime.Length >= 10 ? fromTime[..10] : DateTime.UtcNow.ToString("yyyy-MM-dd"));
+        var splitTask = mcp.QueryAsync($@"
+            SELECT TOP 1 c.ComissionRate
+            FROM PartnerFinProductsPeriods p
+            JOIN PartnerFinProductsComissions c ON p.PeriodId=c.PeriodId
+            JOIN PartnerApiKeys ak ON p.ApiKeyId=ak.ApiKeyId
+            WHERE {pp.Filter} AND p.StartDate<='{splitDate}' AND p.EndDate>'{splitDate}'", "split");
+
+        var dataTask = mcp.QueryAsync($@"
             WITH opens AS (
               SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as opens
               FROM Applications a JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId
@@ -95,6 +103,11 @@ public static class SummaryEndpoints
               CROSS JOIN ankety_total at
             ORDER BY o.dt", "partner summary");
 
+        await Task.WhenAll(splitTask, dataTask);
+        var splitRows = await splitTask;
+        var dbSplit = splitRows.Count > 0 ? (int)Math.Round(GetDbl(splitRows[0], "ComissionRate")) : pp.Split;
+        var rows = await dataTask;
+
         var days = rows.Select(r => new
         {
             date = GetStr(r, "dt")[..10],
@@ -109,7 +122,7 @@ public static class SummaryEndpoints
         var anketyTotal = rows.Count > 0 ? GetInt(rows[0], "ankety_total") : 0;
         return Results.Ok(new
         {
-            partner = new { name = pp.Name, split = pp.Split, filter = pp.Filter },
+            partner = new { name = pp.Name, split = dbSplit, filter = pp.Filter },
             days,
             ankety_total = anketyTotal
         });

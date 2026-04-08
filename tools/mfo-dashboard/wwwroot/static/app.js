@@ -493,7 +493,19 @@ function renderPartnerCards() {
   document.getElementById('c-issued').textContent = fmt(d.reduce((s, r) => s + r.issued, 0));
   const sK = d.reduce((s, r) => s + r.kv, 0);
   document.getElementById('c-kv').textContent = fmt(sK);
-  document.getElementById('c-insapp').textContent = fmt(Math.round(sK * (100 - split) / 100));
+  renderRunRate(d);
+}
+
+function renderRunRate(days) {
+  var el = document.getElementById('c-runrate');
+  var sorted = days.slice().sort(function(a, b) { return a.date > b.date ? 1 : -1; });
+  var fullDays = sorted.length > 1 ? sorted.slice(0, -1) : [];
+  if (!fullDays.length) { el.textContent = '\u2014'; return; }
+  var endDate = new Date(sorted[sorted.length - 1].date);
+  var daysInMonth = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0).getDate();
+  var totalKv = fullDays.reduce(function(s, r) { return s + r.kv; }, 0);
+  var rr = Math.round(totalKv / fullDays.length * daysInMonth);
+  el.textContent = fmt(rr);
 }
 
 function renderPartnerTable() {
