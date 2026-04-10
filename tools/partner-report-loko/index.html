@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Отчёт МФО — ЛОКО-Банк</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap');
+:root{--bg:#F5F6F8;--card:#fff;--v:#1D4ED8;--v2:#2563EB;--green2:#16A34A;--t1:#111827;--t2:#374151;--t3:#6B7280;--t4:#9CA3AF;--r1:10px;--r2:14px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--t1);line-height:1.5;min-height:100vh;-webkit-font-smoothing:antialiased}
+.header{display:flex;align-items:center;gap:16px;padding:0 28px;height:56px;background:#fff;border-bottom:1px solid rgba(15,23,42,.08)}
+.header h1{font-size:13px;font-weight:600;color:var(--t3)}
+.header .sep{width:1px;height:20px;background:rgba(15,23,42,.10);margin:0 4px}
+.controls{display:flex;gap:10px;align-items:center;padding:20px 28px;flex-wrap:wrap}
+.controls input[type=date]{padding:8px 14px;border:1px solid rgba(15,23,42,.15);border-radius:var(--r1);font-size:13px;font-weight:500;font-family:inherit;background:#fff;color:var(--t1)}
+.controls input:focus{outline:none;border-color:var(--v);box-shadow:0 0 0 3px rgba(29,78,216,.1)}
+.dash{color:var(--t4);font-size:13px}
+.btn{padding:9px 22px;border:none;border-radius:var(--r1);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s}
+.btn-primary{background:var(--v);color:#fff}
+.btn-primary:hover{background:var(--v2)}
+.btn:disabled{opacity:.4;cursor:wait}
+.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;padding:0 28px 24px}
+.card{background:var(--card);border:1px solid rgba(15,23,42,.08);border-radius:var(--r2);padding:18px 16px}
+.card .label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--t4);margin-bottom:8px}
+.card .value{font-family:'Montserrat',sans-serif;font-size:24px;font-weight:800;letter-spacing:-1px;color:var(--t1);line-height:1}
+.card .value.accent{color:var(--v)}
+.card .value.green{color:var(--green2)}
+.table-wrap{padding:0 28px 48px}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border-radius:var(--r2);overflow:hidden;border:1px solid rgba(15,23,42,.08)}
+thead th{background:#F9FAFB;padding:12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--t4);text-align:right;border-bottom:1px solid rgba(15,23,42,.08);white-space:nowrap}
+thead th:first-child{text-align:left;width:auto;padding:12px}
+tbody td{padding:12px;font-size:15px;font-weight:500;text-align:right;border-bottom:1px solid rgba(15,23,42,.05);font-variant-numeric:tabular-nums;color:var(--t1)}
+tbody td:first-child{text-align:left;font-weight:600;color:var(--t1)}
+tbody tr.total-row{background:#F9FAFB}
+tbody tr.total-row td{border-top:1px solid rgba(15,23,42,.1);border-bottom:none;padding:14px 12px;font-weight:700;font-size:15px}
+thead th.col-issued{color:var(--v)}
+.pct{font-size:11px;font-weight:400;color:var(--t4)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(15,23,42,.12);border-top-color:var(--v);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:48px;color:var(--t3);font-size:13px;font-weight:500}
+#status{color:var(--t3);font-size:13px;font-weight:500;margin-left:4px}
+thead th.sortable{cursor:pointer;user-select:none;transition:color .15s}
+thead th.sortable:hover{color:var(--t2)}
+.sort-arrow{font-weight:400;color:var(--v)}
+.login-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.login-box h2{font-size:16px;font-weight:700;margin-bottom:20px;color:var(--t1)}
+.login-box input{display:block;width:100%;padding:10px 14px;border:1px solid rgba(15,23,42,.15);border-radius:var(--r1);font-size:14px;font-family:inherit;margin-bottom:12px}
+.login-box input:focus{outline:none;border-color:var(--v);box-shadow:0 0 0 3px rgba(29,78,216,.1)}
+.login-box .btn{width:100%;margin-top:4px}
+.login-error{color:#DC2626;font-size:12px;font-weight:500;margin-bottom:8px;display:none}
+@media(max-width:1100px){.cards{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.controls,.cards,.table-wrap{padding-left:16px;padding-right:16px}.cards{grid-template-columns:repeat(2,1fr)}.card .value{font-size:20px}}
+</style>
+</head>
+<body>
+
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <h2>Отчёт МФО — ЛОКО-Банк</h2>
+    <div id="loginError" class="login-error"></div>
+    <input type="text" id="loginUser" placeholder="Логин" autocomplete="username">
+    <input type="password" id="loginPass" placeholder="Пароль" autocomplete="current-password">
+    <button class="btn btn-primary" onclick="doLogin()">Войти</button>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+
+<div class="header">
+  <svg width="151" height="47" viewBox="0 0 151 47" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M37.3338 14.3066C36.9564 13.9374 36.553 13.5945 36.1266 13.2804C36.4974 11.4888 36.4092 9.63519 35.87 7.88502C35.3308 6.13485 34.3573 4.54251 33.0364 3.25007C31.9861 2.21615 30.7365 1.39649 29.3602 0.838602C27.9838 0.280716 26.508 -0.00430769 25.0183 4.9205e-05C23.5293 -0.00355122 22.0543 0.281833 20.6787 0.839692C19.3032 1.39755 18.0543 2.21681 17.0043 3.25007L3.31463 16.6534C1.19207 18.7349 0 21.5555 0 24.4962C0 27.4369 1.19207 30.2575 3.31463 32.339C3.69091 32.7087 4.09367 33.0516 4.51982 33.3652C4.15032 35.1568 4.2391 37.0101 4.77824 38.76C5.31737 40.51 6.29016 42.1024 7.61004 43.3955C8.66 44.4288 9.90889 45.2481 11.2845 45.8059C12.66 46.3638 14.135 46.6492 15.624 46.6456C17.113 46.6492 18.588 46.3638 19.9636 45.8059C21.3391 45.2481 22.588 44.4288 23.638 43.3955L37.3277 29.9922C39.4505 27.9112 40.6434 25.0912 40.6445 22.1507C40.6457 19.2101 39.4551 16.3892 37.3338 14.3066ZM15.6281 40.3592C14.9829 40.3603 14.3438 40.2362 13.748 39.9939C13.1521 39.7517 12.6113 39.3961 12.1568 38.9479C11.5842 38.387 11.1621 37.6963 10.9281 36.9373C10.6941 36.1782 10.6555 35.3743 10.8156 34.5971C11.0029 33.69 11.4543 32.8554 12.1156 32.1938L14.7629 29.5366L10.9804 29.2845H10.896C9.98376 29.2082 9.11196 28.8819 8.38053 28.343C8.195 28.2059 8.01947 28.0564 7.8552 27.8954C6.93595 26.9933 6.41974 25.7712 6.41974 24.4972C6.41974 23.2232 6.93595 22.0011 7.8552 21.099L21.5469 7.69567C22.001 7.24752 22.5415 6.89201 23.137 6.64976C23.7326 6.4075 24.3713 6.2833 25.0162 6.28437C25.6615 6.28326 26.3005 6.40743 26.8964 6.64968C27.4922 6.89193 28.0331 7.24746 28.4876 7.69567C29.0605 8.25635 29.4828 8.94704 29.7168 9.70617C29.9508 10.4653 29.9892 11.2693 29.8287 12.0465C29.6418 12.9538 29.1911 13.789 28.5308 14.4518L25.8815 17.109L29.666 17.3611H29.7484C30.6606 17.4374 31.5324 17.7637 32.2638 18.3026C32.4498 18.4392 32.6253 18.5887 32.7892 18.7502C33.7084 19.6523 34.2246 20.8744 34.2246 22.1484C34.2246 23.4224 33.7084 24.6445 32.7892 25.5466L19.0995 38.9479C18.6452 39.3964 18.1044 39.7521 17.5085 39.9944C16.9126 40.2366 16.2734 40.3607 15.6281 40.3592Z" fill="#025BFF"/>
+    <path d="M142.249 17.0024C144.529 17.0024 146.471 17.9003 148.074 19.6962C149.7 21.4687 150.513 23.6494 150.513 26.2382C150.513 28.8271 149.7 31.0194 148.074 32.8153C146.471 34.5878 144.529 35.4741 142.249 35.4741C139.878 35.4741 138.049 34.6228 136.762 32.9202V41.9811H132.392V17.4922H136.762V19.5563C138.049 17.8537 139.878 17.0024 142.249 17.0024ZM138.083 29.8066C138.963 30.7162 140.081 31.171 141.436 31.171C142.791 31.171 143.908 30.7162 144.789 29.8066C145.692 28.8737 146.144 27.6842 146.144 26.2382C146.144 24.7922 145.692 23.6144 144.789 22.7048C143.908 21.7719 142.791 21.3055 141.436 21.3055C140.081 21.3055 138.963 21.7719 138.083 22.7048C137.202 23.6144 136.762 24.7922 136.762 26.2382C136.762 27.6842 137.202 28.8737 138.083 29.8066Z" fill="#1E1F21"/>
+    <path d="M121.724 17.0024C124.004 17.0024 125.946 17.9003 127.549 19.6962C129.175 21.4687 129.988 23.6494 129.988 26.2382C129.988 28.8271 129.175 31.0194 127.549 32.8153C125.946 34.5878 124.004 35.4741 121.724 35.4741C119.353 35.4741 117.524 34.6228 116.237 32.9202V41.9811H111.867V17.4922H116.237V19.5563C117.524 17.8537 119.353 17.0024 121.724 17.0024ZM117.558 29.8066C118.438 30.7162 119.556 31.171 120.911 31.171C122.266 31.171 123.383 30.7162 124.264 29.8066C125.167 28.8737 125.619 27.6842 125.619 26.2382C125.619 24.7922 125.167 23.6144 124.264 22.7048C123.383 21.7719 122.266 21.3055 120.911 21.3055C119.556 21.3055 118.438 21.7719 117.558 22.7048C116.677 23.6144 116.237 24.7922 116.237 26.2382C116.237 27.6842 116.677 28.8737 117.558 29.8066Z" fill="#1E1F21"/>
+    <path d="M104.214 17.4922H108.583V34.9843H104.214V32.9202C102.904 34.6228 101.064 35.4741 98.6928 35.4741C96.4348 35.4741 94.4929 34.5878 92.8671 32.8153C91.2639 31.0194 90.4623 28.8271 90.4623 26.2382C90.4623 23.6494 91.2639 21.4687 92.8671 19.6962C94.4929 17.9003 96.4348 17.0024 98.6928 17.0024C101.064 17.0024 102.904 17.8537 104.214 19.5563V17.4922ZM96.1525 29.8066C97.0332 30.7162 98.1509 31.171 99.5057 31.171C100.861 31.171 101.978 30.7162 102.859 29.8066C103.762 28.8737 104.214 27.6842 104.214 26.2382C104.214 24.7922 103.762 23.6144 102.859 22.7048C101.978 21.7719 100.861 21.3055 99.5057 21.3055C98.1509 21.3055 97.0332 21.7719 96.1525 22.7048C95.2719 23.6144 94.8316 24.7922 94.8316 26.2382C94.8316 27.6842 95.2719 28.8737 96.1525 29.8066Z" fill="#1E1F21"/>
+    <path d="M80.7049 22.4599C80.7049 22.9264 80.9984 23.3112 81.5855 23.6144C82.1952 23.8943 82.9291 24.1508 83.7871 24.3841C84.6452 24.594 85.5032 24.8738 86.3613 25.2237C87.2193 25.5502 87.9419 26.11 88.529 26.9029C89.1386 27.6959 89.4435 28.6871 89.4435 29.8766C89.4435 31.6724 88.7886 33.0602 87.479 34.0397C86.1919 34.9959 84.5774 35.4741 82.6355 35.4741C79.1581 35.4741 76.7872 34.0864 75.5227 31.3109L79.3162 29.1069C79.813 30.6229 80.9194 31.3809 82.6355 31.3809C84.1936 31.3809 84.9726 30.8795 84.9726 29.8766C84.9726 29.4101 84.6677 29.037 84.0581 28.7571C83.471 28.4539 82.7484 28.1857 81.8904 27.9525C81.0323 27.7192 80.1743 27.4277 79.3162 27.0779C78.4582 26.728 77.7243 26.1799 77.1146 25.4336C76.5275 24.6639 76.234 23.7077 76.234 22.5649C76.234 20.839 76.8437 19.4863 78.063 18.5067C79.3049 17.5038 80.8404 17.0024 82.6694 17.0024C84.0468 17.0024 85.3 17.3289 86.429 17.982C87.558 18.6117 88.4499 19.5213 89.1048 20.7107L85.379 22.8098C84.8371 21.6203 83.9339 21.0256 82.6694 21.0256C82.1049 21.0256 81.6307 21.1539 81.2468 21.4104C80.8855 21.667 80.7049 22.0168 80.7049 22.4599Z" fill="#1E1F21"/>
+    <path d="M67.2185 17.0024C69.07 17.0024 70.5942 17.6438 71.791 18.9265C73.0103 20.2093 73.62 21.9818 73.62 24.2441V34.9843H69.2507V24.8039C69.2507 23.6377 68.9459 22.7515 68.3362 22.1451C67.7265 21.5154 66.9136 21.2005 65.8975 21.2005C64.7685 21.2005 63.8653 21.562 63.1879 22.285C62.5105 23.008 62.1718 24.0925 62.1718 25.5386V34.9843H57.8025V17.4922H62.1718V19.4513C63.233 17.8187 64.9153 17.0024 67.2185 17.0024Z" fill="#1E1F21"/>
+    <path d="M49.6193 10.4953H54.2934V34.9842H49.6193V10.4953Z" fill="#1E1F21"/>
+  </svg>
+  <div class="sep"></div>
+  <h1>Отчёт МФО ЛОКО-Банк</h1>
+</div>
+
+<div class="controls">
+  <input type="date" id="start">
+  <span class="dash">—</span>
+  <input type="date" id="end">
+  <button class="btn btn-primary" id="loadBtn" onclick="loadData()">Загрузить</button>
+  <span id="status"></span>
+</div>
+
+<div class="cards" id="cards" style="display:none">
+  <div class="card"><div class="label">Открытия</div><div class="value" id="c-opens">-</div></div>
+  <div class="card"><div class="label">Переходы</div><div class="value" id="c-trans">-</div></div>
+  <div class="card"><div class="label">Анкеты</div><div class="value" id="c-anke">-</div></div>
+  <div class="card"><div class="label">Выдачи</div><div class="value accent" id="c-issued">-</div></div>
+  <div class="card"><div class="label">Доход</div><div class="value green" id="c-income">-</div></div>
+  <div class="card"><div class="label">Run Rate</div><div class="value green" id="c-runrate">-</div></div>
+</div>
+
+<div class="table-wrap" id="tableWrap"></div>
+
+</div>
+
+<script>
+/* === Config === */
+var MCP_URL = 'https://db-mcp.insapp.pro/mcp';
+var MCP_KEY = '810075b46868cd6e240576f92630d5ca32f971512cbeaf6e';
+var PARTNER_ID = '4e96325d-0734-4989-bddd-eebf459d132e';
+var SPLIT = 80;
+var AUTH_USER = 'loko-mfo';
+var AUTH_PASS = 'L0k@9!mFz';
+
+/* === Auth === */
+function doLogin() {
+  var u = document.getElementById('loginUser').value.trim();
+  var p = document.getElementById('loginPass').value;
+  var err = document.getElementById('loginError');
+  if (u === AUTH_USER && p === AUTH_PASS) {
+    localStorage.setItem('loko_auth', '1');
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('app').style.display = '';
+    loadData();
+  } else {
+    err.textContent = '\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043b\u043e\u0433\u0438\u043d \u0438\u043b\u0438 \u043f\u0430\u0440\u043e\u043b\u044c';
+    err.style.display = '';
+  }
+}
+document.getElementById('loginPass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+if (localStorage.getItem('loko_auth') === '1') {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('app').style.display = '';
+}
+
+/* === MCP Client === */
+var _sessionId = null;
+var _reqId = 0;
+
+async function mcpPost(body) {
+  var headers = { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream', 'x-api-key': MCP_KEY };
+  if (_sessionId) headers['mcp-session-id'] = _sessionId;
+  var resp = await fetch(MCP_URL, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+  var sid = resp.headers.get('mcp-session-id') || resp.headers.get('Mcp-Session');
+  if (sid) _sessionId = sid;
+  return { text: await resp.text(), status: resp.status };
+}
+
+async function ensureSession() {
+  if (_sessionId) return;
+  await mcpPost({ jsonrpc: '2.0', method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'partner-report-loko', version: '1.0' } }, id: ++_reqId });
+  await mcpPost({ jsonrpc: '2.0', method: 'notifications/initialized' });
+}
+
+function parseMcpResponse(text) {
+  var rows = null;
+  var lines = text.indexOf('data: ') >= 0 ? text.split('\n') : [text];
+  for (var i = 0; i < lines.length; i++) {
+    var payload = lines[i].startsWith('data: ') ? lines[i].slice(6) : lines[i];
+    if (!payload.trim()) continue;
+    try {
+      var doc = JSON.parse(payload);
+      var content = (doc.result || {}).content || [];
+      for (var j = 0; j < content.length; j++) {
+        if (content[j].type === 'text') {
+          var inner = JSON.parse(content[j].text);
+          if (inner.success && inner.rows) rows = inner.rows;
+        }
+      }
+    } catch (e) {}
+  }
+  return rows || [];
+}
+
+async function mcpQuery(sql, desc) {
+  for (var attempt = 0; attempt < 3; attempt++) {
+    try {
+      await ensureSession();
+      var r = await mcpPost({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'query', arguments: { database: 'InsappCoreProd', sql: sql, user_prompt: 'partner-report', query_description: desc || 'report' } }, id: ++_reqId });
+      if (r.status === 401 || r.status === 403 || r.status === 404 || r.status === 410) { _sessionId = null; continue; }
+      return parseMcpResponse(r.text);
+    } catch (e) { _sessionId = null; }
+  }
+  return [];
+}
+
+/* === SQL === */
+function buildSQL(start, end) {
+  var pid = PARTNER_ID;
+  return "WITH opens AS (" +
+    " SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as opens" +
+    " FROM Applications a JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId" +
+    " WHERE ak.PartnerId='" + pid + "' AND a.ProductTypeId=5 AND a.ChannelTypeId=2" +
+    " AND CAST(a.Created AS DATE) >= '" + start + "' AND CAST(a.Created AS DATE) <= '" + end + "'" +
+    " GROUP BY CAST(a.Created AS DATE)" +
+    "), transitions AS (" +
+    " SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as transitions" +
+    " FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId" +
+    " JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId" +
+    " WHERE ff.SelectedDate IS NOT NULL AND ak.PartnerId='" + pid + "'" +
+    " AND a.ProductTypeId=5 AND a.ChannelTypeId=2" +
+    " AND CAST(a.Created AS DATE) >= '" + start + "' AND CAST(a.Created AS DATE) <= '" + end + "'" +
+    " GROUP BY CAST(a.Created AS DATE)" +
+    "), ankety AS (" +
+    " SELECT CAST(a.Created AS DATE) as dt, COUNT(DISTINCT s.ApplicationId) as ankety" +
+    " FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId" +
+    " JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId" +
+    " WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6'" +
+    " AND ak.PartnerId='" + pid + "' AND a.ProductTypeId=5 AND a.ChannelTypeId=2" +
+    " AND CAST(a.Created AS DATE) >= '" + start + "' AND CAST(a.Created AS DATE) <= '" + end + "'" +
+    " GROUP BY CAST(a.Created AS DATE)" +
+    "), rejections AS (" +
+    " SELECT CAST(a.Created AS DATE) as dt, COUNT(*) as rejected" +
+    " FROM FinOffers ff JOIN Applications a ON ff.ApplicationId=a.ApplicationId" +
+    " JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId" +
+    " WHERE ff.OfferStatusTypeId=3 AND ak.PartnerId='" + pid + "'" +
+    " AND a.ProductTypeId=5 AND a.ChannelTypeId=2" +
+    " AND CAST(a.Created AS DATE) >= '" + start + "' AND CAST(a.Created AS DATE) <= '" + end + "'" +
+    " GROUP BY CAST(a.Created AS DATE)" +
+    "), issued AS (" +
+    " SELECT dt, COUNT(*) as issued, SUM(kv) as kv FROM (" +
+    "  SELECT DISTINCT a.ApplicationId, CAST(a.Created AS DATE) as dt, a.IncomingComissionAmount as kv" +
+    "  FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId" +
+    "  JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId" +
+    "  JOIN ApplicationStatusTypes stt ON s.ApplicationStatusTypeId=stt.Id" +
+    "  JOIN FinOffers ff ON a.ApplicationId=ff.ApplicationId AND ff.OfferStatusTypeId=6" +
+    "  WHERE stt.[Index]=305 AND ak.PartnerId='" + pid + "'" +
+    "  AND a.ProductTypeId=5 AND a.ChannelTypeId=2" +
+    "  AND CAST(a.Created AS DATE) >= '" + start + "' AND CAST(a.Created AS DATE) <= '" + end + "'" +
+    " ) sub GROUP BY dt" +
+    "), ankety_total AS (" +
+    " SELECT COUNT(DISTINCT s.ApplicationId) as ankety_total" +
+    " FROM ApplicationStatuses s JOIN Applications a ON s.ApplicationId=a.ApplicationId" +
+    " JOIN PartnerApiKeys ak ON a.ApiKeyId=ak.ApiKeyId" +
+    " WHERE s.ApplicationStatusTypeId='b1a2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6'" +
+    " AND ak.PartnerId='" + pid + "' AND a.ProductTypeId=5 AND a.ChannelTypeId=2" +
+    " AND CAST(a.Created AS DATE) >= '" + start + "' AND CAST(a.Created AS DATE) <= '" + end + "'" +
+    ")" +
+    " SELECT o.dt, o.opens, ISNULL(t.transitions,0) as transitions," +
+    " ISNULL(an.ankety,0) as ankety, ISNULL(r.rejected,0) as rejected," +
+    " ISNULL(i.issued,0) as issued, ISNULL(i.kv,0) as kv, at.ankety_total" +
+    " FROM opens o LEFT JOIN transitions t ON o.dt=t.dt" +
+    " LEFT JOIN ankety an ON o.dt=an.dt LEFT JOIN rejections r ON o.dt=r.dt" +
+    " LEFT JOIN issued i ON o.dt=i.dt CROSS JOIN ankety_total at ORDER BY o.dt";
+}
+
+/* === Helpers === */
+var fmt = function(v) { return v == null ? '\u2014' : Number(v).toLocaleString('ru-RU'); };
+var pct = function(a, b) { return b ? Math.round(a / b * 100) + '%' : ''; };
+var DATA = null;
+var sortCol = 6;
+
+function mkCell(v, sub) {
+  var td = document.createElement('td');
+  td.textContent = v;
+  if (sub) { var s = document.createElement('span'); s.className = 'pct'; s.textContent = ' (' + sub + ')'; td.appendChild(s); }
+  return td;
+}
+function mkTh(t, cls, sortIdx) {
+  var th = document.createElement('th');
+  th.textContent = t;
+  if (cls) th.className = cls;
+  if (sortIdx != null) {
+    th.classList.add('sortable');
+    if (sortCol === sortIdx) { var ar = document.createElement('span'); ar.className = 'sort-arrow'; ar.textContent = ' \u2193'; th.appendChild(ar); }
+    th.addEventListener('click', function() { sortCol = sortCol === sortIdx ? 6 : sortIdx; renderTable(); });
+  }
+  return th;
+}
+function appendCells(tr, cells) { for (var i = 0; i < cells.length; i++) tr.appendChild(cells[i]); }
+function sortDesc(arr, fn) {
+  return arr.slice().sort(function(a, b) { var va = fn(a), vb = fn(b); if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1; return vb - va; });
+}
+function colVal(r, col) {
+  var pk = r.kv * SPLIT / 100;
+  var approved = r.ankety - r.rejected;
+  switch (col) {
+    case 1: return r.opens; case 2: return r.transitions; case 3: return r.ankety;
+    case 4: return r.rejected; case 5: return approved; case 6: return r.issued;
+    case 7: return pk; case 8: return r.transitions ? Math.round(pk / r.transitions) : null;
+    case 9: return r.ankety ? Math.round(pk / r.ankety) : null; default: return 0;
+  }
+}
+
+/* === Init dates === */
+(function() {
+  var now = new Date();
+  var today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  document.getElementById('start').value = today;
+  document.getElementById('end').value = today;
+  if (localStorage.getItem('loko_auth') === '1') loadData();
+})();
+
+/* === Load === */
+async function loadData() {
+  var btn = document.getElementById('loadBtn');
+  var status = document.getElementById('status');
+  btn.disabled = true;
+  status.textContent = '';
+  var spinner = document.createElement('span'); spinner.className = 'spinner';
+  status.appendChild(spinner); status.append(' \u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...');
+  try {
+    var start = document.getElementById('start').value;
+    var end = document.getElementById('end').value;
+    sortCol = 6;
+    var sql = buildSQL(start, end);
+    var rows = await mcpQuery(sql, 'LOKO ' + start + '..' + end);
+    var days = [], anketyTotal = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      days.push({ date: String(r.dt || '').slice(0, 10), opens: Number(r.opens||0), transitions: Number(r.transitions||0), ankety: Number(r.ankety||0), rejected: Number(r.rejected||0), issued: Number(r.issued||0), kv: Number(r.kv||0) });
+      anketyTotal = Number(r.ankety_total || 0);
+    }
+    DATA = { days: days, ankety_total: anketyTotal };
+    renderCards();
+    renderTable();
+    status.textContent = '';
+  } catch (e) {
+    status.textContent = '\u041e\u0448\u0438\u0431\u043a\u0430: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* === Cards === */
+function renderCards() {
+  document.getElementById('cards').style.display = '';
+  var d = DATA.days;
+  document.getElementById('c-opens').textContent = fmt(d.reduce(function(s, r) { return s + r.opens; }, 0));
+  document.getElementById('c-trans').textContent = fmt(d.reduce(function(s, r) { return s + r.transitions; }, 0));
+  document.getElementById('c-anke').textContent = fmt(DATA.ankety_total);
+  document.getElementById('c-issued').textContent = fmt(d.reduce(function(s, r) { return s + r.issued; }, 0));
+  var totalKv = d.reduce(function(s, r) { return s + r.kv; }, 0);
+  document.getElementById('c-income').textContent = fmt(Math.round(totalKv * SPLIT / 100));
+  /* Run Rate */
+  var el = document.getElementById('c-runrate');
+  var sorted = d.slice().sort(function(a, b) { return a.date > b.date ? 1 : -1; });
+  var fullDays = sorted.length > 1 ? sorted.slice(0, -1) : [];
+  if (!fullDays.length) { el.textContent = '\u2014'; return; }
+  var endDate = new Date(sorted[sorted.length - 1].date);
+  var daysInMonth = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0).getDate();
+  var fKv = fullDays.reduce(function(s, r) { return s + r.kv; }, 0);
+  el.textContent = fmt(Math.round(fKv * SPLIT / 100 / fullDays.length * daysInMonth));
+}
+
+/* === Table === */
+function renderTable() {
+  var wrap = document.getElementById('tableWrap');
+  var d = DATA.days;
+  if (!d.length) { wrap.textContent = ''; var em = document.createElement('div'); em.className = 'empty'; em.textContent = '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445'; wrap.appendChild(em); return; }
+  if (sortCol != null) d = sortDesc(d, function(x) { return colVal(x, sortCol); });
+  var tbl = document.createElement('table');
+  var thead = document.createElement('thead');
+  var hr = document.createElement('tr');
+  ['\u0414\u0430\u0442\u0430','\u041e\u0442\u043a\u0440.','\u041f\u0435\u0440\u0435\u0445.','\u0410\u043d\u043a\u0435\u0442\u044b','\u041e\u0442\u043a\u0430\u0437\u044b','\u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e','\u0412\u044b\u0434\u0430\u0447\u0438','\u0414\u043e\u0445\u043e\u0434','EPC','EPL'].forEach(function(t, i) {
+    hr.appendChild(mkTh(t, i === sortCol ? 'col-issued' : null, i >= 1 ? i : null));
+  });
+  thead.appendChild(hr); tbl.appendChild(thead);
+  var tbody = document.createElement('tbody');
+  for (var j = 0; j < d.length; j++) {
+    var r = d[j];
+    var pk = Math.round(r.kv * SPLIT / 100);
+    var epc = r.transitions ? Math.round(pk / r.transitions) : null;
+    var epl = r.ankety ? Math.round(pk / r.ankety) : null;
+    var approved = r.ankety - r.rejected;
+    var parts = r.date.slice(5).split('-');
+    var tr = document.createElement('tr');
+    appendCells(tr, [mkCell(parts[1]+'.'+parts[0]), mkCell(fmt(r.opens)), mkCell(fmt(r.transitions)),
+      mkCell(fmt(r.ankety)), mkCell(fmt(r.rejected), pct(r.rejected, r.ankety)),
+      mkCell(fmt(approved), pct(approved, r.ankety)),
+      mkCell(fmt(r.issued), pct(r.issued, approved)),
+      mkCell(fmt(pk)), mkCell(epc!=null?fmt(epc):'\u2014'), mkCell(epl!=null?fmt(epl):'\u2014')]);
+    tbody.appendChild(tr);
+  }
+  var orig = DATA.days;
+  var totO=0,totT=0,totR=0,totI=0,totK=0; for(var k=0;k<orig.length;k++){totO+=orig[k].opens;totT+=orig[k].transitions;totR+=orig[k].rejected;totI+=orig[k].issued;totK+=orig[k].kv;}
+  var totA=DATA.ankety_total, totAp=totA-totR, totPk=Math.round(totK*SPLIT/100);
+  var totalTr = document.createElement('tr'); totalTr.className = 'total-row';
+  appendCells(totalTr, [mkCell('\u0418\u0442\u043e\u0433\u043e'), mkCell(fmt(totO)), mkCell(fmt(totT)), mkCell(fmt(totA)),
+    mkCell(fmt(totR),pct(totR,totA)), mkCell(fmt(totAp),pct(totAp,totA)),
+    mkCell(fmt(totI),pct(totI,totAp)), mkCell(fmt(totPk)),
+    mkCell(totT?fmt(Math.round(totPk/totT)):'\u2014'), mkCell(totA?fmt(Math.round(totPk/totA)):'\u2014')]);
+  tbody.appendChild(totalTr);
+  tbl.appendChild(tbody); wrap.textContent = ''; wrap.appendChild(tbl);
+}
+</script>
+</body>
+</html>
