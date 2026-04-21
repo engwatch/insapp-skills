@@ -6,7 +6,7 @@
 
 | Скилл | Команда | Описание | Требования |
 |-------|---------|----------|------------|
-| [audio_script](skills/audio_script/) | `/audio_script` | Расшифровка звонков через Whisper + скрипт для AI колл-бота | Python, ffmpeg |
+| [audio_script](skills/audio_script/) | `/audio_script` | Расшифровка звонков через `mlx_whisper` на Apple Silicon GPU + скрипт для AI колл-бота | Python, mlx-whisper, ffmpeg |
 | [gitlab_dev_report](skills/gitlab_dev_report/) | `/gitlab_dev_report` | Отчёт продуктивности команды: коммиты, строки кода, MR, acceptance rate | gitlab MCP |
 | [gitlab_fulltime_report](skills/gitlab_fulltime_report/) | `/gitlab_fulltime_report` | Полный отчёт по разработчику за всё время: помесячная разбивка, сложность задач, HTML | gitlab MCP, tracker MCP |
 | [gitlab_compar](skills/gitlab_compar/) | `/gitlab_compar` | Сравнение команды за период: фичи, строки кода, сложность. HTML с вкладками | gitlab MCP, tracker MCP |
@@ -20,8 +20,9 @@
 | [column-auto-width](skills/column-auto-width/) | — | Авто-ширина колонок Google Sheets | Playwright |
 | [convert-to-table](skills/convert-to-table/) | — | Конвертировать диапазон в таблицу Google Sheets | Playwright |
 | [github-setup](skills/github-setup/) | `/github-setup` | Настройка SSH для GitHub, создание репо, подключение папки | — |
+| [html](skills/html/) | `/html` | Генерация локального HTML-артефакта без публикации | — |
 | [legal_new_mfo](skills/legal_new_mfo/) | `/legal_new_mfo` | Генерация договоров лидогенерации МФО + обновление реестра | gdrive MCP |
-| [html-push](skills/html-push/) | `/html-push` | Деплой HTML на GitHub Pages с публичной ссылкой | Playwright, SSH |
+| [html-push](skills/html-push/) | `/html-push` | Публикация готового HTML на GitHub Pages с публичной ссылкой | Git, SSH |
 | [mfo-month-vendor](skills/mfo-month-vendor/) | `/mfo-month-vendor` | Сверка МФО по вендорам за месяц: листы партнёров + Итог | insapp-db MCP, gdrive MCP |
 | [report_claude_use](skills/report_claude_use/) | `/report_claude_use` | Отчёт по использованию Claude Code: HTML-дашборд | — |
 | [gitlab-find-dev-repos](skills/gitlab-find-dev-repos/) | — | Поиск всех репозиториев разработчика в GitLab | gitlab MCP |
@@ -29,6 +30,8 @@
 | [playwright-tips](skills/playwright-tips/) | — | Блокировка JS-редиректов и обход anti-DDoS | Playwright |
 | [tracker-tips](skills/tracker-tips/) | — | Резолв аккаунтов Яндекс Трекера: маппинг логинов | tracker MCP |
 | [publick-push](skills/publick-push/) | `/publick_push` | Публикация скиллов в общий репозиторий | Git, SSH |
+| [setup](skills/setup/) | `/setup` | Установка системы самообучения Claude Code: `CLAUDE.md`, режим проекта, журналы | — |
+| [create](skills/create/) | `/create` | Создание нового проекта: `Projects/...`, `CONTEXT.md`, опциональный skill | — |
 | [mfo-health-check](skills/mfo-health-check/) | `/mfo-health-check` | Диагностика финпродуктов: ошибки, комиссии, постбеки, выдачи | insapp-db MCP |
 | [mfo-regress](skills/mfo-regress/) | `/mfo-regress` | Автоматический регресс МФО-фич на тестовом окружении | insapp-db MCP, Playwright, Google Sheets MCP |
 
