@@ -207,7 +207,7 @@ GitLab `list_commits` принимает `author` как строку совпа
 ### gitlab.com — insappmappings
 
 - **Проект:** `dmtree.h/insappmappings` (ID: 37332742)
-- **Токен (read_api):** `glpat-MSKPWknpCV3OD6285l5sVGM6MQpvOjEKdTo1ZmRzaA8.01.171le9108`
+- **Токен (read_api):** хранится в env-переменной `GITLAB_COM_INSAPPMAPPINGS_TOKEN` (или `~/.netrc` для curl). В коде/доке — НЕ держать. Старый токен `glpat-MS…108` отозван 2026-05-04 после security-audit
 - **Только для чтения** из этого проекта. Не использовать для записи или других проектов на gitlab.com.
 - API: `https://gitlab.com/api/v4/projects/37332742/...`
 - Default branch — `master`, но коммиты идут в `develop` и feature-ветки. При запросе коммитов указывать `ref_name=develop` и другие активные ветки.
